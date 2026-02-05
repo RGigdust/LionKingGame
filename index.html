@@ -118,19 +118,22 @@
     </div>
 
     <script>
-        function checkGate() {
-            const ans = document.getElementById('answer-input').value.trim();
-            // الحل هو "الحفرة" أو "الحفر"
-            if(ans === "الحفرة" || ans === "الحفر" || ans === "الحفرة ") {
-                document.getElementById('riddle-section').style.display = 'none';
-                document.getElementById('vault-section').style.display = 'block';
-                document.getElementById('gate-container').style.borderColor = "#fff";
-                document.getElementById('soul-number').innerText = Math.floor(Math.random() * 1000) + 1;
-                startMining();
-            } else {
-                alert("البومة لا تسمح بعبور المخطئين. ركز أكثر.");
-            }
-        }
+          function unlock() {
+      // بنحول الإجابة لحروف صغيرة وبنشيل المسافات عشان نضمن الدخول
+      const ans = document.getElementById('gate-ans').value.trim();
+      const possibleAnswers = ["حفرة", "حفره", "الحفرة", "الحفره", "حفر"];
+      
+      if(possibleAnswers.includes(ans)) {
+          document.getElementById('gate-section').style.display = 'none';
+          document.getElementById('main-section').style.display = 'block';
+          loadLake(); 
+          startMining();
+          console.log("تم فتح العرين للقائد");
+      } else {
+          alert("البومة ترفض دخولك. تذكر: الشيء الذي ينمو كلما أخذت منه.");
+      }
+  }
+
 
         function startMining() {
             let bal = 0;
