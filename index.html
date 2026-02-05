@@ -3,93 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>THE LAST MILLION | العرين</title>
+    <title>LAST$ - العرين</title>
     <style>
-        body { background: #080808; color: gold; font-family: 'Cairo', sans-serif; margin: 0; touch-action: none; overflow: hidden; text-align: center; }
-        .vault-box { padding: 15px; background: #111; border-bottom: 2px solid gold; font-size: 20px; box-shadow: 0 0 15px gold; }
-        #stage { height: 60vh; position: relative; display: flex; justify-content: center; align-items: center; }
-        #lion { width: 220px; transition: transform 0.1s; z-index: 10; cursor: grab; }
-        .mentor { position: absolute; top: 20px; width: 60px; }
-        #gate { position: absolute; bottom: 10%; width: 280px; height: 350px; border: 4px dashed #333; border-radius: 140px 140px 0 0; }
-        .unlocked { border: 4px solid gold; box-shadow: 0 0 30px gold; background: rgba(255,215,0,0.1); }
-        .progress-box { width: 85%; height: 12px; background: #222; border-radius: 10px; margin: 20px auto; border: 1px solid #444; overflow: hidden; }
-        #fill { width: 0%; height: 100%; background: linear-gradient(90deg, orange, gold); }
+        /* جو الغابة المظلمة */
+        body { margin: 0; background: #050a05; color: #d4af37; font-family: 'Cairo', sans-serif; overflow: hidden; }
+        
+        #game-container { position: relative; width: 100vw; height: 100vh; background: radial-gradient(circle, #0a1a0a 0%, #000 100%); }
+
+        /* البومة (المعلم) */
+        .owl-message { 
+            position: absolute; top: 10%; width: 80%; left: 10%; 
+            background: rgba(0,0,0,0.8); border: 1px solid #d4af37; 
+            padding: 15px; border-radius: 10px; z-index: 20; 
+            display: none; text-align: center; font-size: 14px;
+        }
+
+        /* الشبل العاري */
+        #shibl {
+            position: absolute; bottom: 20%; left: 50%;
+            transform: translateX(-50%); width: 150px;
+            filter: grayscale(0.5); /* عاري وتايه */
+            transition: 0.2s; z-index: 10;
+        }
+
+        /* الزار (الغبار) */
+        .zar-counter { position: absolute; top: 20px; right: 20px; font-size: 20px; font-weight: bold; }
+
+        /* شريط النَفَس (التعدين) */
+        .progress-bar {
+            position: absolute; bottom: 10%; width: 80%; left: 10%;
+            height: 10px; background: #222; border-radius: 5px; overflow: hidden;
+        }
+        #fill { width: 0%; height: 100%; background: linear-gradient(90deg, #d4af37, #ffd700); }
+
+        /* تأثير الظلام */
+        .fog { position: absolute; width: 100%; height: 100%; background: url('https://www.transparenttextures.com/patterns/asfalt-dark.png'); opacity: 0.3; pointer-events: none; }
     </style>
 </head>
 <body>
-    <div class="vault-box">الوعاء الملكي: <span id="vault">250,000</span> $LAST</div>
-    <div id="stage">
-        <img id="owl" src="owl.png" class="mentor" style="right: 20px;">
-        <img id="monkey" src="monkey.png" class="mentor" style="left: 20px; display: none;">
-        <div id="gate"></div>
-        <img id="lion" src="shibl.png">
+
+<div id="game-container">
+    <div class="fog"></div>
+    <div class="zar-counter">الزار: <span id="zar-val">0</span></div>
+    
+    <div id="owl-ui" class="owl-message">
+        <strong style="color: #fff;">البومة:</strong> <span id="owl-text"></span>
     </div>
-    <div id="status">اسحب الشبل يميناً ويساراً لجمع "الزار"</div>
-    <div class="progress-box"><div id="fill"></div></div>
-    <div style="font-size: 18px;">رصيد الزار: <span id="zar-balance">0</span></div>
 
-    <script>
-        let db = {
-            zar: parseInt(localStorage.getItem('zar')) || 0,
-            isKing: localStorage.getItem('isKing') === 'true',
-            vault: 250000
-        };
+    <img id="shibl" src="https://via.placeholder.com/150/8b4513/ffffff?text=SHIBL" alt="الشبل">
 
-        const lion = document.getElementById('lion');
-        const fill = document.getElementById('fill');
-        let startX = 0, miningTime = 0, isMining = false;
-        let limit = db.isKing ? 5000 : 15000; // 5 ثواني أو 15 ثانية
+    <div class="progress-bar"><div id="fill"></div></div>
+</div>
 
-        function updateUI() {
-            document.getElementById('zar-balance').innerText = db.zar;
-            document.getElementById('vault').innerText = (db.vault - db.zar).toLocaleString();
-            if (db.isKing) {
-                lion.src = "lion_king.png";
-                document.getElementById('gate').classList.add('unlocked');
-                document.getElementById('owl').style.display = "none";
-                document.getElementById('monkey').style.display = "block";
-            }
+<script>
+    const owlMessages = [
+        "لا تقلق يا صغيري.. الغابة مظلمة لكن الزار في كل مكان.",
+        "احفر هنا.. الصياد بعيد حالياً، اجمع ما يكفيك لتكبر."
+    ];
+
+    let zar = parseInt(localStorage.getItem('zar_balance')) || 0;
+    let isDigging = false;
+    let progress = 0;
+
+    // تشغيل رسالة البومة عند الدخول
+    window.onload = () => {
+        const ui = document.getElementById('owl-ui');
+        const text = document.getElementById('owl-text');
+        ui.style.display = 'block';
+        text.innerText = owlMessages[0];
+        document.getElementById('zar-val').innerText = zar;
+    };
+
+    // ميكانيكا الحفر بالسحب (Drag)
+    let startX = 0;
+    document.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; });
+
+    document.addEventListener('touchmove', (e) => {
+        let move = Math.abs(e.touches[0].clientX - startX);
+        if (move > 20) { // لو في حركة سحب
+            dig();
+            document.getElementById('shibl').style.transform = `translateX(-50%) scale(1.05) rotate(${Math.sin(Date.now()/100)*5}deg)`;
         }
+    });
 
-        lion.addEventListener('touchstart', (e) => { 
-            startX = e.touches[0].clientX; 
-            if(!isMining) { isMining = true; miningTime = Date.now(); }
-        });
-
-        window.addEventListener('touchmove', (e) => {
-            if(!isMining) return;
-            let currentX = e.touches[0].clientX;
-            let move = currentX - startX;
-            lion.style.transform = `translateX(${move/2}px) rotate(${move/15}deg)`;
-            
-            let elapsed = Date.now() - miningTime;
-            let progress = (elapsed / limit) * 100;
-            
-            if(progress <= 100) {
-                fill.style.width = progress + "%";
-            } else {
-                finish();
-            }
-        });
-
-        function finish() {
-            isMining = false;
-            let gain = db.isKing ? 50 : 10;
-            db.zar += gain;
-            localStorage.setItem('zar', db.zar);
-            if(db.zar >= 1000 && !db.isKing) {
-                db.isKing = true;
-                localStorage.setItem('isKing', 'true');
-                limit = 5000;
-                alert("تم التطور! تحول الشبل لأسد وانفتحت البوابة.");
-            }
-            updateUI();
-            fill.style.width = "0%";
-            lion.style.transform = "translateX(0)";
+    function dig() {
+        if (progress < 100) {
+            progress += 0.5; // سرعة الحفر (15 ثانية تقريباً)
+            document.getElementById('fill').style.width = progress + "%";
+        } else {
+            completeDigging();
         }
+    }
 
-        updateUI();
-    </script>
+    function completeDigging() {
+        progress = 0;
+        document.getElementById('fill').style.width = "0%";
+        zar += 10;
+        localStorage.setItem('zar_balance', zar);
+        document.getElementById('zar-val').innerText = zar;
+        
+        // رسالة نجاح من البومة
+        document.getElementById('owl-text').innerText = "أحسنت! هذا الزار سيبنيك.. استمر.";
+    }
+</script>
+
 </body>
 </html>
-
