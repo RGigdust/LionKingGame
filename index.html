@@ -3,151 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>The LAST Million | العرين</title>
+    <title>THE LAST MILLION | العرين</title>
     <style>
-        :root { --gold: #ffd700; --royal-red: #8b0000; }
-        body { background: #000; color: var(--gold); font-family: 'Cairo', sans-serif; margin: 0; overflow: hidden; touch-action: none; }
-        
-        /* الوعاء الملكي (Squid Game Style) */
-        .vault-box { background: rgba(20, 20, 20, 0.9); border: 2px solid var(--gold); padding: 10px; text-align: center; border-radius: 0 0 20px 20px; box-shadow: 0 0 20px rgba(255, 215, 0, 0.2); }
-        .vault-amount { font-size: 24px; font-weight: bold; color: #fff; text-shadow: 0 0 10px var(--gold); }
-
-        #stage { position: relative; height: 60vh; width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; }
-        
-        /* الأسد/الشبل مع الـ Drag */
-        #lion-wrapper { position: absolute; width: 200px; cursor: grab; transition: transform 0.1s; z-index: 10; }
-        #lion-wrapper:active { cursor: grabbing; }
-
-        /* البوابة السحرية خلف الأسد */
-        #gate { position: absolute; bottom: 10%; width: 260px; height: 320px; border: 4px dashed #333; border-radius: 130px 130px 0 0; z-index: 1; }
-        .gate-open { border: 4px solid var(--gold) !important; box-shadow: 0 0 50px var(--gold); background: radial-gradient(circle, rgba(255,215,0,0.1) 0%, transparent 70%); }
-
-        /* الأيقونات التوجيهية */
-        .mentor { position: absolute; top: 20px; width: 60px; filter: drop-shadow(0 0 5px gold); }
-        #owl { right: 20px; }
-        #monkey { left: 20px; display: none; }
-
-        /* واجهة النَفَس */
-        .controls { padding: 20px; text-align: center; background: #0a0a0a; border-top: 1px solid #222; }
-        .progress-bar { width: 90%; height: 15px; background: #1a1a1a; border-radius: 10px; margin: 10px auto; border: 1px solid #333; overflow: hidden; }
-        #fill { width: 0%; height: 100%; background: linear-gradient(90deg, #ff4500, var(--gold)); }
+        body { background: #080808; color: gold; font-family: 'Cairo', sans-serif; margin: 0; touch-action: none; overflow: hidden; text-align: center; }
+        .vault-box { padding: 15px; background: #111; border-bottom: 2px solid gold; font-size: 20px; box-shadow: 0 0 15px gold; }
+        #stage { height: 60vh; position: relative; display: flex; justify-content: center; align-items: center; }
+        #lion { width: 220px; transition: transform 0.1s; z-index: 10; cursor: grab; }
+        .mentor { position: absolute; top: 20px; width: 60px; }
+        #gate { position: absolute; bottom: 10%; width: 280px; height: 350px; border: 4px dashed #333; border-radius: 140px 140px 0 0; }
+        .unlocked { border: 4px solid gold; box-shadow: 0 0 30px gold; background: rgba(255,215,0,0.1); }
+        .progress-box { width: 85%; height: 12px; background: #222; border-radius: 10px; margin: 20px auto; border: 1px solid #444; overflow: hidden; }
+        #fill { width: 0%; height: 100%; background: linear-gradient(90deg, orange, gold); }
     </style>
 </head>
 <body>
-
-    <div class="vault-box">
-        <div>الوعاء الملكي المتبقي</div>
-        <div class="vault-amount" id="vault-display">250,000</div>
-        <div style="font-size: 12px;">عملة $LAST المتاحة للموسم الأول</div>
-    </div>
-
+    <div class="vault-box">الوعاء الملكي: <span id="vault">250,000</span> $LAST</div>
     <div id="stage">
-        <img id="owl" class="mentor" src="owl.png" alt="البومة">
-        <img id="monkey" class="mentor" src="monkey.png" alt="القرد">
+        <img id="owl" src="owl.png" class="mentor" style="right: 20px;">
+        <img id="monkey" src="monkey.png" class="mentor" style="left: 20px; display: none;">
         <div id="gate"></div>
-        <div id="lion-wrapper">
-            <img id="lion-img" src="shibl.png" style="width: 100%;">
-        </div>
+        <img id="lion" src="shibl.png">
     </div>
+    <div id="status">اسحب الشبل يميناً ويساراً لجمع "الزار"</div>
+    <div class="progress-box"><div id="fill"></div></div>
+    <div style="font-size: 18px;">رصيد الزار: <span id="zar-balance">0</span></div>
 
-    <div class="controls">
-        <div id="status-text">اسحب الشبل يميناً ويساراً للحفر</div>
-        <div class="progress-bar"><div id="fill"></div></div>
-        <div style="display:flex; justify-content: space-around; font-size: 14px;">
-            <div>رصيدك: <span id="user-balance">0</span></div>
-            <div>نَفَس التعدين: <span id="timer-val">15</span>ث</div>
-        </div>
-    </div>
+    <script>
+        let db = {
+            zar: parseInt(localStorage.getItem('zar')) || 0,
+            isKing: localStorage.getItem('isKing') === 'true',
+            vault: 250000
+        };
 
-<script>
-    // نظام التخزين والبيانات
-    let db = {
-        dust: parseInt(localStorage.getItem('last_dust')) || 0,
-        isKing: localStorage.getItem('last_isKing') === 'true',
-        vault: 250000 - (parseInt(localStorage.getItem('last_dust')) || 0)
-    };
+        const lion = document.getElementById('lion');
+        const fill = document.getElementById('fill');
+        let startX = 0, miningTime = 0, isMining = false;
+        let limit = db.isKing ? 5000 : 15000; // 5 ثواني أو 15 ثانية
 
-    const lion = document.getElementById('lion-wrapper');
-    const fill = document.getElementById('fill');
-    let isDragging = false;
-    let startX, currentX;
-    let miningStart = null;
-    let limit = db.isKing ? 5 : 15;
-
-    // تهيئة اللعبة عند الفتح
-    function init() {
-        document.getElementById('user-balance').innerText = db.dust;
-        document.getElementById('vault-display').innerText = db.vault.toLocaleString();
-        if(db.isKing) applyEvolutionUI();
-    }
-
-    // ميكانيكا الـ Drag
-    lion.addEventListener('touchstart', (e) => {
-        isDragging = true;
-        startX = e.touches[0].clientX;
-        if (!miningStart) miningStart = Date.now();
-    });
-
-    window.addEventListener('touchmove', (e) => {
-        if (!isDragging) return;
-        currentX = e.touches[0].clientX;
-        let move = currentX - startX;
-        
-        // تحريك الأسد بصرياً مع السحب
-        lion.style.transform = `translateX(${move}px) rotate(${move/10}deg)`;
-
-        // حساب التقدم
-        let elapsed = (Date.now() - miningStart) / 1000;
-        let progress = (elapsed / limit) * 100;
-
-        if (progress <= 100) {
-            fill.style.width = progress + "%";
-            document.getElementById('timer-val').innerText = Math.ceil(limit - elapsed);
-        } else {
-            completeMining();
+        function updateUI() {
+            document.getElementById('zar-balance').innerText = db.zar;
+            document.getElementById('vault').innerText = (db.vault - db.zar).toLocaleString();
+            if (db.isKing) {
+                lion.src = "lion_king.png";
+                document.getElementById('gate').classList.add('unlocked');
+                document.getElementById('owl').style.display = "none";
+                document.getElementById('monkey').style.display = "block";
+            }
         }
-    });
 
-    window.addEventListener('touchend', () => {
-        isDragging = false;
-        lion.style.transform = `translateX(0) rotate(0)`;
-    });
+        lion.addEventListener('touchstart', (e) => { 
+            startX = e.touches[0].clientX; 
+            if(!isMining) { isMining = true; miningTime = Date.now(); }
+        });
 
-    function completeMining() {
-        miningStart = null;
-        fill.style.width = "0%";
-        let gain = db.isKing ? 50 : 10;
-        db.dust += gain;
-        db.vault -= gain;
-        
-        // حفظ البيانات فوراً
-        localStorage.setItem('last_dust', db.dust);
-        document.getElementById('user-balance').innerText = db.dust;
-        document.getElementById('vault-display').innerText = db.vault.toLocaleString();
+        window.addEventListener('touchmove', (e) => {
+            if(!isMining) return;
+            let currentX = e.touches[0].clientX;
+            let move = currentX - startX;
+            lion.style.transform = `translateX(${move/2}px) rotate(${move/15}deg)`;
+            
+            let elapsed = Date.now() - miningTime;
+            let progress = (elapsed / limit) * 100;
+            
+            if(progress <= 100) {
+                fill.style.width = progress + "%";
+            } else {
+                finish();
+            }
+        });
 
-        if (db.dust >= 1000 && !db.isKing) {
-            evolveToKing();
+        function finish() {
+            isMining = false;
+            let gain = db.isKing ? 50 : 10;
+            db.zar += gain;
+            localStorage.setItem('zar', db.zar);
+            if(db.zar >= 1000 && !db.isKing) {
+                db.isKing = true;
+                localStorage.setItem('isKing', 'true');
+                limit = 5000;
+                alert("تم التطور! تحول الشبل لأسد وانفتحت البوابة.");
+            }
+            updateUI();
+            fill.style.width = "0%";
+            lion.style.transform = "translateX(0)";
         }
-    }
 
-    function evolveToKing() {
-        db.isKing = true;
-        localStorage.setItem('last_isKing', 'true');
-        limit = 5;
-        applyEvolutionUI();
-        alert("🚨 لقد كبر الشبل! تحطم الصياد وانفتحت البوابة السحرية.");
-    }
-
-    function applyEvolutionUI() {
-        document.getElementById('lion-img').src = "lion_king.png";
-        document.getElementById('gate').classList.add('gate-open');
-        document.getElementById('owl').style.display = "none";
-        document.getElementById('monkey').style.display = "block";
-        document.getElementById('status-text').innerText = "أنت الآن أسد كاسر! التعدين أسرع";
-        document.getElementById('timer-val').innerText = "5";
-    }
-
-    init();
-</script>
+        updateUI();
+    </script>
 </body>
 </html>
+
