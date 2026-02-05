@@ -139,6 +139,67 @@
                 document.getElementById('balance').innerText = bal.toFixed(4);
             }, 2000);
         }
-    </script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
+<script>
+  // بياناتك الحقيقية من السكرين شوت
+  const firebaseConfig = {
+    apiKey: "AIzaSyCegNsEjJJDqVQK80If3lvHUKHBACBkP8U",
+    authDomain: "thelastmillion-b4e69.firebaseapp.com",
+    // السطر ده مهم جداً عشان البحيرة تشتغل
+    databaseURL: "https://thelastmillion-b4e69-default-rtdb.firebaseio.com", 
+    projectId: "thelastmillion-b4e69",
+    storageBucket: "thelastmillion-b4e69.firebasestorage.app",
+    messagingSenderId: "667969923379",
+    appId: "1:667969923379:web:f439369a7056da14cff646",
+    measurementId: "G-MH6ET857TM"
+  };
+
+  // تشغيل النظام
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // وظيفة عبور البوابة
+  function unlock() {
+      const ans = document.getElementById('gate-ans').value.trim();
+      if(ans === "حفره" || ans === "حفرة") {
+          document.getElementById('gate-section').style.display = 'none';
+          document.getElementById('main-section').style.display = 'block';
+          loadLake(); // تشغيل الشات
+          startMining(); // تشغيل العداد
+      } else {
+          alert("البومة لا تفتح الباب إلا لمن يعرف الإجابة.");
+      }
+  }
+
+  // إرسال رسالة للبحيرة
+  function sendMsg() {
+      const msg = document.getElementById('msg-input').value;
+      if(msg.trim()) {
+          db.ref('lake').push({ text: msg, time: Date.now() });
+          document.getElementById('msg-input').value = '';
+      }
+  }
+
+  // استقبال الرسائل وعرضها فوراً
+  function loadLake() {
+      db.ref('lake').limitToLast(15).on('child_added', (snap) => {
+          const data = snap.val();
+          const div = document.createElement('div');
+          div.className = 'bubble';
+          div.innerHTML = `<span>أسد:</span> ${data.text}`;
+          document.getElementById('lake').appendChild(div);
+          document.getElementById('lake').scrollTop = document.getElementById('lake').scrollHeight;
+      });
+  }
+
+  // عداد الـ $LAST
+  function startMining() {
+      let b = 0; 
+      setInterval(() => { b += 0.0001; document.getElementById('bal').innerText = b.toFixed(4); }, 2000);
+  }
+</script>
+
 </body>
 </html>
