@@ -1,164 +1,197 @@
-<!DOCTYPE html>
+َ<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>THE LAST MILLION | العرين</title>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
-    
     <style>
-        :root { --gold: #d4af37; --night-sky: #050b1a; --day-sky: #4CAF50; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
-
-        /* 1. واجهة البوابة */
-        #gate-screen {
-            position: fixed; inset: 0; background: #000; z-index: 1000;
-            display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+        body {
+            margin: 0;
+            overflow: hidden; /* ممنوع السكرول نهائي */
+            background-color: #1a472a; /* لون الغابة الغامق */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none; /* مهم جداً للموبايل عشان السحب يشتغل */
         }
 
-        /* 2. العالم (الغابة) */
-        #game-world {
-            display: none; width: 100vw; height: 100vh; position: relative;
-            transition: background 2s; overflow: hidden;
+        /* أرضية الغابة */
+        #game-area {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-image: repeating-linear-gradient(45deg, #1e5230 25%, transparent 25%, transparent 75%, #1e5230 75%, #1e5230), repeating-linear-gradient(45deg, #1e5230 25%, #1a472a 25%, #1a472a 75%, #1e5230 75%, #1e5230);
+            background-position: 0 0, 10px 10px;
+            background-size: 20px 20px;
         }
-        .day { background: linear-gradient(to bottom, #76ba1b, #4CAF50); }
-        .night { background: linear-gradient(to bottom, #0a1f0a, #050b1a); }
-
-        /* الضباب المتحرك */
-        #fog {
-            position: absolute; top: 0; left: 0; width: 200%; height: 100%;
-            background: url('https://www.transparenttextures.com/patterns/asfalt-dark.png');
-            opacity: 0.15; pointer-events: none; animation: fogMove 40s infinite linear; z-index: 50;
-        }
-        @keyframes fogMove { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
         /* الشبل (اللاعب) */
-        #lion-player {
-            position: absolute; width: 70px; height: 70px; z-index: 100;
-            transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-            filter: drop-shadow(0 0 10px rgba(212, 175, 55, 0.5));
-            display: flex; align-items: center; justify-content: center; font-size: 50px;
+        #hero {
+            position: absolute;
+            width: 80px;  /* حجم الشبل */
+            height: 80px;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            pointer-events: none; /* عشان صباعك مايغطيش عليه */
+            will-change: transform, left, top; /* تحسين الأداء */
         }
-        .breathing { animation: breathe 1.5s infinite ease-in-out; }
-        @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
-
-        /* العناصر الجوية */
-        #owl { position: absolute; font-size: 35px; z-index: 60; animation: owlFly 20s infinite linear; }
-        @keyframes owlFly { 0% { left: -10%; top: 10%; } 50% { left: 110%; top: 20%; transform: scaleX(-1); } 100% { left: -10%; top: 10%; } }
-
-        /* العداد والشات */
-        #ui-layer { position: absolute; top: 15px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 200; pointer-events: none; }
-        #balance-box { background: rgba(0,0,0,0.8); border: 1px solid var(--gold); padding: 10px 25px; border-radius: 30px; color: var(--gold); font-weight: bold; font-size: 1.2rem; pointer-events: auto; }
-        #lake-mini { position: absolute; bottom: 20px; right: 20px; width: 200px; height: 120px; background: rgba(0,0,0,0.6); border-radius: 10px; padding: 10px; overflow-y: auto; font-size: 0.8rem; pointer-events: auto; border: 1px solid #333; }
         
-        .gem { position: absolute; font-size: 25px; cursor: pointer; z-index: 90; animation: breathe 1s infinite; }
-        input, button { pointer-events: auto; }
+        /* صورة الشبل */
+        #hero img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(0 10px 5px rgba(0,0,0,0.3)); /* ظل عشان يبان مجسم */
+        }
+
+        /* دائرة التحكم تحت الصباع (عشان تعرف انت دايس فين) */
+        #joystick-indicator {
+            position: absolute;
+            width: 50px; height: 50px;
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+            pointer-events: none;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+        }
+
+        /* واجهة المستخدم (الرصيد) */
+        .ui-panel {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: #ffd700;
+            padding: 10px 25px;
+            border-radius: 20px;
+            border: 2px solid #ffd700;
+            font-weight: bold;
+            z-index: 100;
+            pointer-events: none; /* عشان ما تعطلش اللعب */
+        }
+
+        /* رسالة توجيه */
+        .tutorial {
+            position: fixed; bottom: 50px; width: 100%; text-align: center;
+            color: rgba(255,255,255,0.6); font-size: 14px; pointer-events: none;
+        }
     </style>
 </head>
-<body class="day">
+<body>
 
-    <div id="gate-screen">
-        <div style="font-size: 80px; margin-bottom: 20px;">🦉</div>
-        <h2 style="color: var(--gold);">عرين المليون الأخير</h2>
-        <p style="color: #666; width: 80%;">"شيء نملكه جميعاً.. لكنه يهرب منا كلما حاولنا الإمساك به، فمن نحن؟"</p>
-        <input type="text" id="pass" placeholder="حل اللغز..." style="padding: 10px; border-radius: 5px; border: 1px solid var(--gold); background: #111; color: #fff; text-align: center;">
-        <br>
-        <button onclick="checkGate()" style="padding: 10px 30px; background: var(--gold); border: none; font-weight: bold; cursor: pointer; border-radius: 5px;">فتح البوابة</button>
-    </div>
-
-    <div id="game-world">
-        <div id="fog"></div>
-        <div id="owl">🦉</div>
+    <div id="game-area">
+        <div class="ui-panel">🦁 $LAST: <span id="score">0.0000</span></div>
         
-        <div id="ui-layer">
-            <div id="balance-box">🪙 $LAST: <span id="bal">0.0000</span></div>
+        <div id="hero">
+            <img src="https://cdn-icons-png.flaticon.com/512/616/616430.png" id="hero-img">
         </div>
 
-        <div id="lion-player" class="breathing">🦁</div>
-
-        <div id="lake-mini" id="lake-content">
-            <div style="color: var(--gold); font-size: 0.7rem; margin-bottom: 5px;">همسات البحيرة...</div>
-            <div id="messages"></div>
-        </div>
+        <div id="joystick-indicator"></div>
+        
+        <div class="tutorial">اسحب صباعك في أي مكان لتحريك الشبل</div>
     </div>
 
 <script>
-    // إعدادات Firebase
-    const firebaseConfig = {
-        apiKey: "AIzaSyCegNsEjJJDqVQK80If3lvHUKHBACBkP8U",
-        authDomain: "thelastmillion-b4e69.firebaseapp.com",
-        databaseURL: "https://thelastmillion-b4e69-default-rtdb.firebaseio.com",
-        projectId: "thelastmillion-b4e69",
-        storageBucket: "thelastmillion-b4e69.firebasestorage.app",
-        messagingSenderId: "667969923379",
-        appId: "1:667969923379:web:f439369a7056da14cff646"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    // إعدادات اللعبة
+    const hero = document.getElementById('hero');
+    const heroImg = document.getElementById('hero-img');
+    const gameArea = document.getElementById('game-area');
+    const indicator = document.getElementById('joystick-indicator');
+    const scoreEl = document.getElementById('score');
 
-    let balance = 0.0000;
-    let myName = "أسد";
+    // متغيرات الحركة (الفيزياء)
+    let heroX = window.innerWidth / 2;
+    let heroY = window.innerHeight / 2;
+    let targetX = heroX;
+    let targetY = heroY;
+    let isMoving = false;
+    let score = 0;
 
-    // 1. فتح البوابة
-    function checkGate() {
-        const val = document.getElementById('pass').value;
-        if(val.includes("حفر") || val.includes("ملك") || val.includes("أنفاس")) {
-            myName = prompt("ما هو لقبك في العرين؟") || "أسد مجهول";
-            document.getElementById('gate-screen').style.display = 'none';
-            document.getElementById('game-world').style.display = 'block';
-            initGame();
+    // سرعة اللحاق (0.1 = ناعم وبطيء / 0.3 = سريع وحاد)
+    const smoothFactor = 0.15; 
+
+    // --- استقبال اللمس (التحكم) ---
+    
+    // للموبايل
+    gameArea.addEventListener('touchstart', startMove, {passive: false});
+    gameArea.addEventListener('touchmove', move, {passive: false});
+    gameArea.addEventListener('touchend', endMove);
+
+    // للكمبيوتر (الماوس)
+    gameArea.addEventListener('mousedown', startMove);
+    document.addEventListener('mousemove', (e) => { if(isMoving) move(e); });
+    document.addEventListener('mouseup', endMove);
+
+    function startMove(e) {
+        isMoving = true;
+        indicator.style.display = 'block';
+        updateTarget(e);
+    }
+
+    function move(e) {
+        if(!isMoving) return;
+        e.preventDefault(); // منع الصفحة من السكرول
+        updateTarget(e);
+    }
+
+    function endMove() {
+        isMoving = false;
+        indicator.style.display = 'none';
+    }
+
+    function updateTarget(e) {
+        // حساب مكان الصباع/الماوس
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        
+        targetX = clientX;
+        targetY = clientY;
+
+        // تحريك المؤشر تحت الصباع
+        indicator.style.left = clientX + 'px';
+        indicator.style.top = clientY + 'px';
+    }
+
+    // --- محرك اللعبة (Game Loop) ---
+    // دي الدالة اللي بتشتغل 60 مرة في الثانية عشان الحركة تكون ناعمة
+    function gameLoop() {
+        if (isMoving) {
+            // معادلة الحركة الناعمة (Lerp)
+            // الشبل بيتحرك مسافة صغيرة ناحية الهدف في كل فريم
+            const dx = targetX - heroX;
+            const dy = targetY - heroY;
+            
+            heroX += dx * smoothFactor;
+            heroY += dy * smoothFactor;
+
+            // تغيير اتجاه وش الشبل (يمين/شمال)
+            if (dx > 5) {
+                heroImg.style.transform = "scaleX(-1)"; // وش يمين
+            } else if (dx < -5) {
+                heroImg.style.transform = "scaleX(1)"; // وش شمال
+            }
+
+            // زيادة السكور وهمية عشان تحس باللعب
+            score += 0.0001;
+            scoreEl.innerText = score.toFixed(4);
         } else {
-            alert("البومة لا تعرفك.");
+            // لو واقف، خليه يتنفس (يكبر ويصغر شوية)
+            // دي هنعملها بـ CSS animation بس هنا للتوضيح
         }
+
+        // تطبيق الحركة على العنصر
+        hero.style.left = heroX + 'px';
+        hero.style.top = heroY + 'px';
+
+        // طلب الفريم اللي بعده
+        requestAnimationFrame(gameLoop);
     }
 
-    function initGame() {
-        // تحديد الليل والنهار
-        const hour = new Date().getHours();
-        document.body.className = (hour < 6 || hour > 18) ? "night" : "day";
+    // تشغيل المحرك
+    gameLoop();
 
-        // تحريك الشبل باللمس
-        const world = document.getElementById('game-world');
-        const lion = document.getElementById('lion-player');
-
-        world.addEventListener('mousedown', (e) => {
-            lion.style.left = (e.clientX - 35) + 'px';
-            lion.style.top = (e.clientY - 35) + 'px';
-            balance += 0.0001;
-            document.getElementById('bal').innerText = balance.toFixed(4);
-        });
-
-        // ربط الشات بالبحيرة
-        db.ref('lake').limitToLast(10).on('child_added', (snap) => {
-            const d = snap.val();
-            const msgDiv = document.createElement('div');
-            msgDiv.innerHTML = `<b style="color:gold">${d.rank}:</b> ${d.text}`;
-            msgDiv.style.marginBottom = "5px";
-            document.getElementById('messages').appendChild(msgDiv);
-            document.getElementById('lake-mini').scrollTop = document.getElementById('lake-mini').scrollHeight;
-        });
-
-        // ظهور الجواهر (الصيد)
-        setInterval(spawnGem, 4000);
-    }
-
-    function spawnGem() {
-        const gem = document.createElement('div');
-        gem.className = 'gem';
-        gem.innerHTML = "💎";
-        gem.style.left = Math.random() * 80 + "vw";
-        gem.style.top = Math.random() * 80 + "vh";
-        gem.onclick = () => {
-            balance += 0.0050;
-            document.getElementById('bal').innerText = balance.toFixed(4);
-            gem.remove();
-            // إرسال "نفس" للبحيرة عند الصيد الثمين
-            db.ref('lake').push({rank: myName, text: "اصطاد جوهرة!", time: Date.now()});
-        };
-        document.getElementById('game-world').appendChild(gem);
-        setTimeout(() => gem.remove(), 6000);
-    }
 </script>
 </body>
 </html>
