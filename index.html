@@ -3,107 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>The LAST Million | العرين الملكي</title>
+    <title>The LAST Million | العرين</title>
     <style>
-        body { background: #000; color: #ffd700; font-family: 'Cairo', sans-serif; margin: 0; overflow: hidden; touch-action: none; }
-        #app { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
+        :root { --gold: #ffd700; --royal-red: #8b0000; }
+        body { background: #000; color: var(--gold); font-family: 'Cairo', sans-serif; margin: 0; overflow: hidden; touch-action: none; }
         
-        /* الهوية البصرية */
-        .header { width: 100%; padding: 15px; background: #111; border-bottom: 2px solid gold; display: flex; justify-content: space-around; font-size: 18px; }
-        
-        /* مسرح العمليات */
-        #stage { position: relative; flex: 1; width: 100%; display: flex; justify-content: center; align-items: center; }
-        #lion { width: 220px; z-index: 10; transition: transform 0.1s; }
-        #owl { position: absolute; top: 20px; right: 20px; width: 60px; animation: float 3s infinite; }
-        #monkey { position: absolute; top: 20px; left: 20px; width: 70px; display: none; }
-        
-        /* البوابة السحرية */
-        #gate { position: absolute; width: 280px; height: 350px; border: 4px dashed rgba(255,215,0,0.15); border-radius: 140px 140px 0 0; z-index: 1; }
-        .gate-unlocked { border: 4px solid gold !important; box-shadow: 0 0 40px gold; background: rgba(255,215,0,0.1); }
+        /* الوعاء الملكي (Squid Game Style) */
+        .vault-box { background: rgba(20, 20, 20, 0.9); border: 2px solid var(--gold); padding: 10px; text-align: center; border-radius: 0 0 20px 20px; box-shadow: 0 0 20px rgba(255, 215, 0, 0.2); }
+        .vault-amount { font-size: 24px; font-weight: bold; color: #fff; text-shadow: 0 0 10px var(--gold); }
 
-        /* الأنظمة */
-        .progress-container { width: 85%; height: 12px; background: #222; border-radius: 10px; margin-bottom: 20px; border: 1px solid #444; }
-        #progress-bar { width: 0%; height: 100%; background: linear-gradient(90deg, orange, red); transition: width 0.1s; }
+        #stage { position: relative; height: 60vh; width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; }
         
-        .footer-info { padding: 10px; font-size: 12px; color: #666; width: 100%; background: #050505; border-top: 1px solid #222; }
+        /* الأسد/الشبل مع الـ Drag */
+        #lion-wrapper { position: absolute; width: 200px; cursor: grab; transition: transform 0.1s; z-index: 10; }
+        #lion-wrapper:active { cursor: grabbing; }
+
+        /* البوابة السحرية خلف الأسد */
+        #gate { position: absolute; bottom: 10%; width: 260px; height: 320px; border: 4px dashed #333; border-radius: 130px 130px 0 0; z-index: 1; }
+        .gate-open { border: 4px solid var(--gold) !important; box-shadow: 0 0 50px var(--gold); background: radial-gradient(circle, rgba(255,215,0,0.1) 0%, transparent 70%); }
+
+        /* الأيقونات التوجيهية */
+        .mentor { position: absolute; top: 20px; width: 60px; filter: drop-shadow(0 0 5px gold); }
+        #owl { right: 20px; }
+        #monkey { left: 20px; display: none; }
+
+        /* واجهة النَفَس */
+        .controls { padding: 20px; text-align: center; background: #0a0a0a; border-top: 1px solid #222; }
+        .progress-bar { width: 90%; height: 15px; background: #1a1a1a; border-radius: 10px; margin: 10px auto; border: 1px solid #333; overflow: hidden; }
+        #fill { width: 0%; height: 100%; background: linear-gradient(90deg, #ff4500, var(--gold)); }
     </style>
 </head>
 <body>
 
-<div id="app">
-    <div class="header">
-        <div>الغبار: <span id="balance">0</span></div>
-        <div>الوعاء الملكي: <span id="pool">0</span>/250k</div>
+    <div class="vault-box">
+        <div>الوعاء الملكي المتبقي</div>
+        <div class="vault-amount" id="vault-display">250,000</div>
+        <div style="font-size: 12px;">عملة $LAST المتاحة للموسم الأول</div>
     </div>
 
     <div id="stage">
-        <img id="owl" src="assets/owl.png" onclick="startLesson()">
-        <img id="monkey" src="assets/monkey.png">
+        <img id="owl" class="mentor" src="owl.png" alt="البومة">
+        <img id="monkey" class="mentor" src="monkey.png" alt="القرد">
         <div id="gate"></div>
-        <img id="lion" src="assets/shibl.png">
+        <div id="lion-wrapper">
+            <img id="lion-img" src="shibl.png" style="width: 100%;">
+        </div>
     </div>
 
-    <div style="text-align:center; width: 100%;">
-        <p id="instruction" style="font-size: 14px; margin-bottom: 5px;">🔥 اسحب (Swipe) للحفر واستخراج الغبار!</p>
-        <div class="progress-container"><div id="progress-bar"></div></div>
+    <div class="controls">
+        <div id="status-text">اسحب الشبل يميناً ويساراً للحفر</div>
+        <div class="progress-bar"><div id="fill"></div></div>
+        <div style="display:flex; justify-content: space-around; font-size: 14px;">
+            <div>رصيدك: <span id="user-balance">0</span></div>
+            <div>نَفَس التعدين: <span id="timer-val">15</span>ث</div>
+        </div>
     </div>
-
-    <div class="footer-info">الصياد: مرصود 🎯 | نَفَس الشبل الحالي: <span id="breath-val">15</span>ث</div>
-</div>
 
 <script>
-    let state = { dust: 0, pool: 0, level: 1, limit: 15, isEvolved: false, startTime: null };
-    const lion = document.getElementById('lion');
-    const bar = document.getElementById('progress-bar');
-    let lastX = 0;
+    // نظام التخزين والبيانات
+    let db = {
+        dust: parseInt(localStorage.getItem('last_dust')) || 0,
+        isKing: localStorage.getItem('last_isKing') === 'true',
+        vault: 250000 - (parseInt(localStorage.getItem('last_dust')) || 0)
+    };
 
-    // ميكانيكا السويب (Swipe) الملحمية
+    const lion = document.getElementById('lion-wrapper');
+    const fill = document.getElementById('fill');
+    let isDragging = false;
+    let startX, currentX;
+    let miningStart = null;
+    let limit = db.isKing ? 5 : 15;
+
+    // تهيئة اللعبة عند الفتح
+    function init() {
+        document.getElementById('user-balance').innerText = db.dust;
+        document.getElementById('vault-display').innerText = db.vault.toLocaleString();
+        if(db.isKing) applyEvolutionUI();
+    }
+
+    // ميكانيكا الـ Drag
+    lion.addEventListener('touchstart', (e) => {
+        isDragging = true;
+        startX = e.touches[0].clientX;
+        if (!miningStart) miningStart = Date.now();
+    });
+
     window.addEventListener('touchmove', (e) => {
-        let currentX = e.touches[0].clientX;
-        if (!state.startTime) state.startTime = Date.now();
+        if (!isDragging) return;
+        currentX = e.touches[0].clientX;
+        let move = currentX - startX;
+        
+        // تحريك الأسد بصرياً مع السحب
+        lion.style.transform = `translateX(${move}px) rotate(${move/10}deg)`;
 
-        if (Math.abs(currentX - lastX) > 15) {
-            lastX = currentX;
-            lion.style.transform = `translateX(${(currentX % 10) - 5}px) rotate(${(currentX % 6) - 3}deg)`;
-            
-            let elapsed = (Date.now() - state.startTime) / 1000;
-            let progress = (elapsed / state.limit) * 100;
+        // حساب التقدم
+        let elapsed = (Date.now() - miningStart) / 1000;
+        let progress = (elapsed / limit) * 100;
 
-            if (progress <= 100) {
-                bar.style.width = progress + "%";
-            } else {
-                finishMining();
-            }
+        if (progress <= 100) {
+            fill.style.width = progress + "%";
+            document.getElementById('timer-val').innerText = Math.ceil(limit - elapsed);
+        } else {
+            completeMining();
         }
     });
 
-    function finishMining() {
-        state.dust += (state.level * 10);
-        state.pool += (state.level * 10);
-        document.getElementById('balance').innerText = state.dust;
-        document.getElementById('pool').innerText = state.pool;
-        state.startTime = null;
-        bar.style.width = "0%";
+    window.addEventListener('touchend', () => {
+        isDragging = false;
+        lion.style.transform = `translateX(0) rotate(0)`;
+    });
+
+    function completeMining() {
+        miningStart = null;
+        fill.style.width = "0%";
+        let gain = db.isKing ? 50 : 10;
+        db.dust += gain;
+        db.vault -= gain;
         
-        if (state.dust >= 1000 && !state.isEvolved) evolve();
+        // حفظ البيانات فوراً
+        localStorage.setItem('last_dust', db.dust);
+        document.getElementById('user-balance').innerText = db.dust;
+        document.getElementById('vault-display').innerText = db.vault.toLocaleString();
+
+        if (db.dust >= 1000 && !db.isKing) {
+            evolveToKing();
+        }
     }
 
-    function evolve() {
-        state.isEvolved = true;
-        state.level = 2;
-        state.limit = 5;
-        document.getElementById('gate').classList.add('gate-unlocked');
-        document.getElementById('lion').src = "assets/lion_king.png";
+    function evolveToKing() {
+        db.isKing = true;
+        localStorage.setItem('last_isKing', 'true');
+        limit = 5;
+        applyEvolutionUI();
+        alert("🚨 لقد كبر الشبل! تحطم الصياد وانفتحت البوابة السحرية.");
+    }
+
+    function applyEvolutionUI() {
+        document.getElementById('lion-img').src = "lion_king.png";
+        document.getElementById('gate').classList.add('gate-open');
         document.getElementById('owl').style.display = "none";
         document.getElementById('monkey').style.display = "block";
-        document.getElementById('breath-val').innerText = "5";
-        document.getElementById('instruction').innerText = "أنت الآن أسد ملك! القرد يقودك للصيد الأكبر.";
-        alert("🛡️ سحقت كلاب الصياد! البوابة السحرية انفتحت.");
+        document.getElementById('status-text').innerText = "أنت الآن أسد كاسر! التعدين أسرع";
+        document.getElementById('timer-val').innerText = "5";
     }
 
-    function startLesson() {
-        alert("🦉 البومة: الـ Web3 هو سلاحك.. لا تجعل الصياد يلمس بياناتك!");
-    }
+    init();
 </script>
 </body>
 </html>
