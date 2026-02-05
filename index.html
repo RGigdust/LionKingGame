@@ -44,31 +44,49 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 </script>
-<script>
+  <script>
+    let userRank = "شبل"; // اللقب الافتراضي
+
     function unlock() {
         const a = document.getElementById('gate-ans').value;
-        // البوابة هتفتح بكلمة "حفرة" أو "حفر" أو حتى لو كتبت "ملك" (عشان نسهلها عليك دلوقتي)
         if(a.includes("حفر") || a.includes("ملك")) {
+            // سؤال العابر عن لقبه قبل الدخول
+            let name = prompt("لقد عبرت البوابة.. فبأي لقب ستُعرف في العرين؟", "أسد مجهول");
+            userRank = name ? name : "أسد مجهول";
+            
             document.getElementById('gate-section').style.display = 'none';
             document.getElementById('main-section').style.display = 'block';
             startSystem();
-        } else { alert("خطأ!"); }
+        } else { alert("البومة تمنعك من العبور!"); }
     }
 
     function startSystem() {
-        // تحميل الرسائل
-        db.ref('lake').limitToLast(10).on('child_added', (s) => {
+        // تحميل الرسائل وعرضها باللقب
+        db.ref('lake').limitToLast(15).on('child_added', (s) => {
             const d = s.val();
-            document.getElementById('lake').innerHTML += `<div><span>أسد:</span> ${d.text}</div>`;
+            const time = new Date(d.time).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'});
+            document.getElementById('lake').innerHTML += `
+                <div class="bubble">
+                    <span style="color:#d4af37">[${d.rank || 'عابر'}]</span>: ${d.text} 
+                    <small style="font-size:0.6rem; color:#444; float:left">${time}</small>
+                </div>`;
+            document.getElementById('lake').scrollTop = document.getElementById('lake').scrollHeight;
         });
-        // العداد
+        
+        // العداد الملكي
         let b = 0; setInterval(() => { b += 0.0001; document.getElementById('bal').innerText = b.toFixed(4); }, 2000);
     }
 
     function sendMsg() {
         const m = document.getElementById('msg-input').value;
-        if(m) { db.ref('lake').push({ text: m }); document.getElementById('msg-input').value = ''; }
+        if(m.trim()) { 
+            db.ref('lake').push({ 
+                text: m, 
+                rank: userRank, // إرسال اللقب مع الرسالة
+                time: Date.now() 
+            }); 
+            document.getElementById('msg-input').value = ''; 
+        }
     }
 </script>
-</body>
-</html>
+ 
