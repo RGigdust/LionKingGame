@@ -2,117 +2,160 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>أسد المليون الأخير - النسخة التجريبية</title>
+    <title>أسد المليون الأخير - النسخة الاحترافية</title>
     <style>
-        body { background: #1a1a1a; color: gold; font-family: 'Arial', sans-serif; text-align: center; margin: 0; }
-        #game-container { max-width: 500px; margin: 20px auto; border: 2px solid gold; padding: 20px; border-radius: 15px; }
-        .stat-box { display: flex; justify-content: space-around; background: #333; padding: 10px; border-radius: 10px; margin-bottom: 20px; }
-        .action-btn { background: gold; color: black; border: none; padding: 15px 30px; font-weight: bold; border-radius: 5px; cursor: pointer; margin: 10px; transition: 0.3s; }
-        .action-btn:disabled { background: gray; }
-        #academy-box { background: #222; border: 1px dashed white; padding: 15px; margin-top: 20px; }
-        #status-msg { color: #00ff00; height: 20px; margin: 10px 0; }
+        /* إضافة ستايل بسيط للعداد */
+        body { background: #1a1a1a; color: gold; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin: 0; }
+        #game-container { max-width: 500px; margin: 20px auto; border: 2px solid gold; padding: 20px; border-radius: 15px; background: #222; }
+        .stat-box { display: flex; justify-content: space-around; background: #333; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #444; }
+        .action-btn { background: linear-gradient(to bottom, gold, #b8860b); color: black; border: none; padding: 15px 25px; font-weight: bold; border-radius: 8px; cursor: pointer; margin: 10px; width: 80%; transition: 0.2s; }
+        .action-btn:disabled { background: #555; color: #888; cursor: not-allowed; }
+        #status-msg { color: #00ff00; font-weight: bold; min-height: 24px; margin: 15px 0; }
         .hidden { display: none; }
+        input { padding: 10px; border-radius: 5px; border: none; width: 60%; }
     </style>
 </head>
 <body>
 
-    <h1>🦁 أسد المليون الأخير</h1>
-    
-    <div id="game-container">
-        <div class="stat-box">
-            <div>الذهب: <span id="balance">0</span> $LAST</div>
-            <div>المستوى: <span id="level-name">شبل</span></div>
-        </div>
+<h1>🦁 عرين الأسد الملك</h1>
 
-        <div id="status-msg">أهلاً بك في العرين..</div>
-
-        <div id="controls">
-            <button id="dig-btn" class="action-btn" onclick="startDigging()">اضغط للحفر (15 ثانية)</button>
-            <button id="hunt-btn" class="action-btn hidden" onclick="bossFight()">مواجهة الزعيم 🐗</button>
-        </div>
-
-        <div id="academy-box">
-            <h3>🦉 أكاديمية البومة</h3>
-            <p id="lesson">الدرس: ما هو الـ Web3؟</p>
-            <input type="text" id="secret-code" placeholder="أدخل كود الفيديو هنا...">
-            <button onclick="checkAcademyCode()" style="padding: 5px;">تفعيل المكافأة</button>
-        </div>
-
-        <div id="shop">
-            <h3>🛒 متجر الغابة</h3>
-            <button onclick="buyItem('shield', 500)" class="action-btn" style="font-size: 12px;">شراء درع (500 $LAST)</button>
-        </div>
+<div id="game-container">
+    <div class="stat-box">
+        <div>الذهب: <span id="balance">0</span> $LAST</div>
+        <div>المستوى: <span id="level-name">شبل</span></div>
     </div>
 
-    <script>
-        // حالة اللعبة (State)
-        let gameState = {
-            balance: 0,
-            level: 1, // 1: شبل, 2: شاب, 3: ملك
-            hasShield: false,
-            canDig: true
-        };
+    <div id="status-msg">مستعد لجمع الثروة؟</div>
 
-        // نظام الحفر (Tab/Wait)
-        function startDigging() {
-            if (!gameState.canDig) return;
-            gameState.canDig = false;
-            document.getElementById('dig-btn').disabled = true;
-            document.getElementById('status-msg').innerText = "الأسد يحفر الآن... انتظر 15 ثانية";
+    <div id="controls">
+        <button id="dig-btn" class="action-btn" onclick="startDigging()">اضغط لبدء الحفر ⛏️</button>
+        <button id="hunt-btn" class="action-btn hidden" onclick="bossFight()">⚔️ مواجهة الزعيم</button>
+    </div>
 
-            setTimeout(() => {
-                let reward = Math.floor(Math.random() * 50) + 20;
-                gameState.balance += reward;
-                gameState.canDig = true;
-                document.getElementById('dig-btn').disabled = false;
-                document.getElementById('status-msg').innerText = `تم العثور على ${reward} عملة!`;
-                updateUI();
-            }, 15000);
+    <div id="academy-box">
+        <h3>🦉 أكاديمية البومة</h3>
+        <p id="lesson">الدرس: أمن العملات الرقمية</p>
+        <input type="text" id="secret-code" placeholder="أدخل كود الفيديو...">
+        <button onclick="checkAcademyCode()" style="padding: 10px; cursor:pointer;">تفعيل</button>
+    </div>
+
+    <div id="shop">
+        <h3>🛒 متجر الغابة</h3>
+        <button id="buy-shield-btn" onclick="buyItem('shield', 500)" class="action-btn" style="font-size: 14px;">شراء درع الفولاذ (500 $LAST)</button>
+    </div>
+    
+    <button onclick="resetGame()" style="margin-top:20px; background:none; color:red; border:none; cursor:pointer; font-size:12px;">إعادة ضبط اللعبة (مسح التقدم)</button>
+</div>
+
+<script>
+// تحميل البيانات عند فتح اللعبة
+let gameState = JSON.parse(localStorage.getItem('lionGameSave')) || {
+    balance: 0,
+    level: 1,
+    hasShield: false,
+    usedCodes: []
+};
+
+function saveGame() {
+    localStorage.setItem('lionGameSave', JSON.stringify(gameState));
+}
+
+function startDigging() {
+    let btn = document.getElementById('dig-btn');
+    let msg = document.getElementById('status-msg');
+    let timeLeft = 15;
+
+    btn.disabled = true;
+    
+    let timer = setInterval(() => {
+        btn.innerText = `جاري الحفر... (${timeLeft} ثانية)`;
+        timeLeft--;
+
+        if (timeLeft < 0) {
+            clearInterval(timer);
+            let reward = Math.floor(Math.random() * 50) + 20;
+            gameState.balance += reward;
+            btn.disabled = false;
+            btn.innerText = "اضغط لبدء الحفر ⛏️";
+            msg.innerText = `عاش يا بطل! لقيت ${reward} عملة.`;
+            saveGame();
+            updateUI();
         }
+    }, 1000);
+}
 
-        // نظام الأكاديمية (Learn)
-        function checkAcademyCode() {
-            let code = document.getElementById('secret-code').value;
-            if (code === "LAST2026") {
-                gameState.balance += 200;
-                gameState.level = 2;
-                document.getElementById('status-msg').innerText = "🦉 أحسنت! ارتقيت لمستوى أسد شاب!";
-                document.getElementById('hunt-btn').classList.remove('hidden');
-                updateUI();
-            } else {
-                alert("الكود خطأ! شاهده في فيديو اليوتيوب.");
-            }
-        }
+function checkAcademyCode() {
+    let codeInput = document.getElementById('secret-code');
+    let code = codeInput.value.trim();
 
-        // نظام المتجر (Shop)
-        function buyItem(item, price) {
-            if (gameState.balance >= price) {
-                gameState.balance -= price;
-                if (item === 'shield') gameState.hasShield = true;
-                document.getElementById('status-msg').innerText = "تم شراء الدرع! أنت الآن أقوى.";
-                updateUI();
-            } else {
-                alert("الذهب لا يكفي!");
-            }
-        }
+    if (gameState.usedCodes.includes(code)) {
+        alert("استخدمت الكود ده قبل كده يا أسد!");
+        return;
+    }
 
-        // مواجهة الزعيم (Boss)
-        function bossFight() {
-            if (gameState.hasShield) {
-                alert("🦁 بفضل الدرع، هزمت الخنزير الزعيم وحصلت على تاج الملوك!");
-                gameState.level = 3;
-                updateUI();
-            } else {
-                alert("🐗 الخنزير قذف بك بعيداً! تحتاج لدرع من المتجر أولاً.");
-            }
-        }
+    if (code === "LAST2026") {
+        gameState.balance += 200;
+        gameState.level = Math.max(gameState.level, 2);
+        gameState.usedCodes.push(code);
+        document.getElementById('status-msg').innerText = "🦉 الأكاديمية فخورة بك! تم منحك 200 عملة.";
+        codeInput.value = "";
+        saveGame();
+        updateUI();
+    } else {
+        alert("الكود غلط.. ركز في الفيديو!");
+    }
+}
 
-        // تحديث الشاشة
-        function updateUI() {
-            document.getElementById('balance').innerText = gameState.balance;
-            let levels = ["", "شبل", "أسد شاب", "الأسد الملك 👑"];
-            document.getElementById('level-name').innerText = levels[gameState.level];
-        }
-    </script>
+function buyItem(item, price) {
+    if (gameState.balance >= price) {
+        gameState.balance -= price;
+        if (item === 'shield') gameState.hasShield = true;
+        document.getElementById('status-msg').innerText = "مبروك الدرع! الوحوش هتعملك ألف حساب.";
+        saveGame();
+        updateUI();
+    } else {
+        alert("ذهبك لا يكفي.. احفر أكتر!");
+    }
+}
+
+function bossFight() {
+    if (gameState.hasShield) {
+        alert("🦁 معركة ملحمية! بفضل الدرع هزمت الزعيم وصرت ملك الغابة!");
+        gameState.level = 3;
+        saveGame();
+        updateUI();
+    } else {
+        alert("🐗 الزعيم قوي جداً! محتاج درع من المتجر عشان تصمد قدامه.");
+    }
+}
+
+function updateUI() {
+    document.getElementById('balance').innerText = gameState.balance;
+    let levels = ["", "شبل", "أسد شاب", "الأسد الملك 👑"];
+    document.getElementById('level-name').innerText = levels[gameState.level];
+    
+    // إظهار زر الزعيم لو المستوى مناسب
+    if (gameState.level >= 2) {
+        document.getElementById('hunt-btn').classList.remove('hidden');
+    }
+
+    // تعطيل زر الشراء لو معاه الدرع
+    if (gameState.hasShield) {
+        document.getElementById('buy-shield-btn').innerText = "تمتلك الدرع ✅";
+        document.getElementById('buy-shield-btn').disabled = true;
+    }
+}
+
+function resetGame() {
+    if(confirm("هتمسح كل تعبك؟")) {
+        localStorage.removeItem('lionGameSave');
+        location.reload();
+    }
+}
+
+// تشغيل التحديث لأول مرة عند التحميل
+updateUI();
+</script>
+
 </body>
 </html>
