@@ -1,124 +1,144 @@
 <!DOCTYPE html>
- <html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🦁 Last Empire | العرين</title>
+    <title>THE LAST MILLION | المليون الأخير</title>
     <style>
-        /* نظام البيئات المتغير */
-        :root { --glow: gold; }
-        body { margin: 0; transition: 2s; font-family: 'Arial', sans-serif; overflow: hidden; height: 100vh; display: flex; align-items: center; justify-content: center; background: #05050a; }
-        
-        /* تأثير الليل والنهار */
-        .night { background: radial-gradient(circle, #1a1a2e 0%, #05050a 100%); }
-        .day { background: radial-gradient(circle, #2d5a27 0%, #0a2205 100%); }
-
-        #game-box { width: 90%; max-width: 400px; padding: 25px; border-radius: 40px; border: 4px solid var(--glow); background: rgba(0,0,0,0.85); text-align: center; position: relative; box-shadow: 0 0 30px rgba(212, 175, 55, 0.3); }
-
-        /* الأسد المتنفس */
-        .lion-wrapper { position: relative; margin: 20px auto; width: 150px; }
-        #lion-img { width: 100%; filter: drop-shadow(0 0 15px gold); transition: 0.5s; animation: breathe 4s infinite ease-in-out; }
-        
-        @keyframes breathe {
-            0%, 100% { transform: scale(1); opacity: 0.9; }
-            50% { transform: scale(1.08); opacity: 1; }
+        :root {
+            --gold: #d4af37;
+            --black: #0a0a0a;
+            --gray: #1a1a1a;
         }
 
-        /* فقاعة الكلام */
-        #speech { position: absolute; top: -50px; left: 50%; transform: translateX(-50%); background: white; color: black; padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 13px; display: none; border: 2px solid gold; white-space: nowrap; z-index: 10; }
+        body {
+            background-color: var(--black);
+            color: var(--gold);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
 
-        .stats { background: #111; padding: 15px; border-radius: 20px; margin: 15px 0; border: 1px solid #333; }
-        .action-btn { width: 100%; padding: 15px; border-radius: 15px; border: none; background: linear-gradient(45deg, #d4af37, #b8860b); color: white; font-weight: bold; font-size: 18px; cursor: pointer; margin-top: 10px; }
-        
-        /* رسالة النصر */
-        #victory { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); color: gold; font-size: 45px; font-weight: bold; text-shadow: 0 0 20px black; display: none; z-index: 100; animation: victoryAnim 2s ease-out; }
-        @keyframes victoryAnim { 0% { opacity: 0; scale: 0.5; } 100% { opacity: 1; scale: 1.2; } }
+        #gate-container {
+            text-align: center;
+            border: 1px solid var(--gold);
+            padding: 40px;
+            border-radius: 15px;
+            background: rgba(26, 26, 26, 0.9);
+            box-shadow: 0 0 30px rgba(212, 175, 55, 0.1);
+            max-width: 400px;
+            width: 90%;
+            transition: all 0.5s ease;
+        }
+
+        .owl-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+            display: block;
+            filter: drop-shadow(0 0 10px var(--gold));
+        }
+
+        h1 {
+            letter-spacing: 4px;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .riddle-box {
+            margin: 25px 0;
+            padding: 15px;
+            background: #000;
+            border-right: 4px solid var(--gold);
+        }
+
+        input {
+            background: transparent;
+            border: 1px solid var(--gold);
+            color: #fff;
+            padding: 12px;
+            width: 80%;
+            text-align: center;
+            outline: none;
+            border-radius: 5px;
+        }
+
+        button {
+            background: var(--gold);
+            color: var(--black);
+            border: none;
+            padding: 12px 30px;
+            margin-top: 15px;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 5px;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #fff;
+            box-shadow: 0 0 15px #fff;
+        }
+
+        #vault-section { display: none; }
+
+        .stat { font-size: 0.8rem; color: #666; margin-top: 20px; }
     </style>
 </head>
-<body class="night">
+<body>
 
-<div id="victory">الحُر لا يُهز !</div>
+    <div id="gate-container">
+        <div id="riddle-section">
+            <span class="owl-icon">🦉</span>
+            <h1>The Last Million</h1>
+            <p style="color: #888; font-size: 0.9rem;">عشر سنوات من الصمت.. يكسرها ذكاؤك.</p>
+            
+            <div class="riddle-box">
+                <p id="riddle-text">"أنا أنمو كلما أخذت مني.. فمن أنا؟"</p>
+            </div>
 
-<div id="game-box">
-    <div class="lion-wrapper">
-        <div id="speech">الحُر لا يُهز!</div>
-        <img id="lion-img" src="https://cdn-icons-png.flaticon.com/512/616/616412.png">
+            <input type="text" id="answer-input" placeholder="اكتب الحل هنا...">
+            <br>
+            <button onclick="checkGate()">اعبر البوابة</button>
+            
+            <p class="stat">الأرواح المتبقية: 1,000,000</p>
+        </div>
+
+        <div id="vault-section">
+            <span class="owl-icon">🦁</span>
+            <h1>مرحباً بك في العرين</h1>
+            <p>أنت الآن الروح رقم <span id="soul-number">...</span></p>
+            <div style="font-size: 2rem; margin: 20px 0;">🪙 <span id="balance">0.0000</span> $LAST</div>
+            <p style="color: var(--gold);">جارٍ مزامنة البحيرة...</p>
+        </div>
     </div>
 
-    <div class="stats">
-        💰 الذهب: <span id="gold">0</span> | 🦁 الرتبة: <span id="rank">شبل</span>
-    </div>
-
-    <div id="msg" style="color: #aaa; font-size: 14px; height: 20px;">أصوات الغابة مرعبة حولك...</div>
-
-    <button class="action-btn" onclick="mineGold()">⛏️ ابدأ الحفر في العرين</button>
-    
-    <div id="academy" style="margin-top: 20px; font-size: 12px; opacity: 0.6;">
-        <input type="text" id="code" placeholder="كود الأكاديمية..." style="background:none; border:1px solid gold; color:gold; padding:5px; border-radius:5px; width:60%">
-        <button onclick="activateLevel()" style="background:gold; border:none; border-radius:5px; cursor:pointer">OK</button>
-    </div>
-</div>
-
-<script>
-    let player = { gold: 0, level: 1, isMining: false };
-
-    // نظام النبض المتغير
-    function setHeartbeat(speed) {
-        document.getElementById('lion-img').style.animationDuration = speed;
-    }
-
-    function lionSpeak(text) {
-        const bubble = document.getElementById('speech');
-        bubble.innerText = text;
-        bubble.style.display = 'block';
-        setTimeout(() => bubble.style.display = 'none', 3000);
-    }
-
-    function mineGold() {
-        if(player.isMining) return;
-        player.isMining = true;
-        
-        setHeartbeat('0.6s'); // الأسد بينهج وهو بيحفر
-        document.getElementById('msg').innerText = "الأسد يبذل مجهوداً في الحفر...";
-
-        setTimeout(() => {
-            let found = Math.floor(Math.random() * 20) + 5;
-            player.gold += found;
-            document.getElementById('gold').innerText = player.gold;
-            document.getElementById('msg').innerText = `وجد الأسد ${found} عملة ذهبية!`;
-            setHeartbeat('4s'); // رجوع النفس الطبيعي
-            player.isMining = false;
-
-            // فرصة ظهور الصياد
-            if(Math.random() < 0.25) hunterAttack();
-        }, 3000);
-    }
-
-    function hunterAttack() {
-        setHeartbeat('0.3s'); // نبض رعب
-        lionSpeak("⚠️ رائحة الكلاب!");
-        document.getElementById('game-box').style.borderColor = "red";
-        
-        setTimeout(() => {
-            player.gold = Math.max(0, player.gold - 15);
-            document.getElementById('gold').innerText = player.gold;
-            document.getElementById('msg').innerText = "الصياد سرق منك بعض الذهب!";
-            document.getElementById('game-box').style.borderColor = "gold";
-            setHeartbeat('4s');
-        }, 2000);
-    }
-
-    function activateLevel() {
-        if(document.getElementById('code').value === "LAST2026") {
-            player.level = 2;
-            document.body.className = "day"; // الشمس تشرق
-            document.getElementById('rank').innerText = "أسد ملك";
-            document.getElementById('victory').style.display = "block";
-            lionSpeak("لقد أصبحت ملكاً للغابة!");
-            setTimeout(() => document.getElementById('victory').style.display = "none", 2500);
+    <script>
+        function checkGate() {
+            const ans = document.getElementById('answer-input').value.trim();
+            // الحل هو "الحفرة" أو "الحفر"
+            if(ans === "الحفرة" || ans === "الحفر" || ans === "الحفرة ") {
+                document.getElementById('riddle-section').style.display = 'none';
+                document.getElementById('vault-section').style.display = 'block';
+                document.getElementById('gate-container').style.borderColor = "#fff";
+                document.getElementById('soul-number').innerText = Math.floor(Math.random() * 1000) + 1;
+                startMining();
+            } else {
+                alert("البومة لا تسمح بعبور المخطئين. ركز أكثر.");
+            }
         }
-    }
-</script>
 
+        function startMining() {
+            let bal = 0;
+            setInterval(() => {
+                bal += 0.0001;
+                document.getElementById('balance').innerText = bal.toFixed(4);
+            }, 2000);
+        }
+    </script>
 </body>
 </html>
