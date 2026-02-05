@@ -3,35 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE LAST MILLION</title>
+    <title>THE LAST MILLION | العرين</title>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    
     <style>
-        body { background: #000; color: #d4af37; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        #app { width: 90%; max-width: 400px; text-align: center; border: 1px solid #d4af37; padding: 20px; border-radius: 15px; background: #111; }
-        .lake { background: #000; height: 200px; overflow-y: auto; border: 1px solid #333; margin: 15px 0; padding: 10px; text-align: right; }
-        input { background: #000; border: 1px solid #d4af37; color: #fff; padding: 10px; width: 70%; margin: 10px 0; }
-        button { background: #d4af37; color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; }
-        #main-section { display: none; }
+        :root { --gold: #d4af37; --night-sky: #050b1a; --day-sky: #4CAF50; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+
+        /* 1. واجهة البوابة */
+        #gate-screen {
+            position: fixed; inset: 0; background: #000; z-index: 1000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+        }
+
+        /* 2. العالم (الغابة) */
+        #game-world {
+            display: none; width: 100vw; height: 100vh; position: relative;
+            transition: background 2s; overflow: hidden;
+        }
+        .day { background: linear-gradient(to bottom, #76ba1b, #4CAF50); }
+        .night { background: linear-gradient(to bottom, #0a1f0a, #050b1a); }
+
+        /* الضباب المتحرك */
+        #fog {
+            position: absolute; top: 0; left: 0; width: 200%; height: 100%;
+            background: url('https://www.transparenttextures.com/patterns/asfalt-dark.png');
+            opacity: 0.15; pointer-events: none; animation: fogMove 40s infinite linear; z-index: 50;
+        }
+        @keyframes fogMove { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+        /* الشبل (اللاعب) */
+        #lion-player {
+            position: absolute; width: 70px; height: 70px; z-index: 100;
+            transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+            filter: drop-shadow(0 0 10px rgba(212, 175, 55, 0.5));
+            display: flex; align-items: center; justify-content: center; font-size: 50px;
+        }
+        .breathing { animation: breathe 1.5s infinite ease-in-out; }
+        @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+
+        /* العناصر الجوية */
+        #owl { position: absolute; font-size: 35px; z-index: 60; animation: owlFly 20s infinite linear; }
+        @keyframes owlFly { 0% { left: -10%; top: 10%; } 50% { left: 110%; top: 20%; transform: scaleX(-1); } 100% { left: -10%; top: 10%; } }
+
+        /* العداد والشات */
+        #ui-layer { position: absolute; top: 15px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 200; pointer-events: none; }
+        #balance-box { background: rgba(0,0,0,0.8); border: 1px solid var(--gold); padding: 10px 25px; border-radius: 30px; color: var(--gold); font-weight: bold; font-size: 1.2rem; pointer-events: auto; }
+        #lake-mini { position: absolute; bottom: 20px; right: 20px; width: 200px; height: 120px; background: rgba(0,0,0,0.6); border-radius: 10px; padding: 10px; overflow-y: auto; font-size: 0.8rem; pointer-events: auto; border: 1px solid #333; }
+        
+        .gem { position: absolute; font-size: 25px; cursor: pointer; z-index: 90; animation: breathe 1s infinite; }
+        input, button { pointer-events: auto; }
     </style>
 </head>
-<body>
-    <div id="app">
-        <div id="gate-section">
-            <h1>🦉 البوابة</h1>
-            <p>ما هو الشيء الذي ينمو كلما أخذت منه؟</p>
-            <input type="text" id="gate-ans" placeholder="الحل...">
-            <button onclick="unlock()">دخول</button>
+<body class="day">
+
+    <div id="gate-screen">
+        <div style="font-size: 80px; margin-bottom: 20px;">🦉</div>
+        <h2 style="color: var(--gold);">عرين المليون الأخير</h2>
+        <p style="color: #666; width: 80%;">"شيء نملكه جميعاً.. لكنه يهرب منا كلما حاولنا الإمساك به، فمن نحن؟"</p>
+        <input type="text" id="pass" placeholder="حل اللغز..." style="padding: 10px; border-radius: 5px; border: 1px solid var(--gold); background: #111; color: #fff; text-align: center;">
+        <br>
+        <button onclick="checkGate()" style="padding: 10px 30px; background: var(--gold); border: none; font-weight: bold; cursor: pointer; border-radius: 5px;">فتح البوابة</button>
+    </div>
+
+    <div id="game-world">
+        <div id="fog"></div>
+        <div id="owl">🦉</div>
+        
+        <div id="ui-layer">
+            <div id="balance-box">🪙 $LAST: <span id="bal">0.0000</span></div>
         </div>
-        <div id="main-section">
-            <h1>🦁 العرين</h1>
-            <div id="bal" style="font-size: 1.5rem; margin-bottom: 10px;">0.0000</div>
-            <div class="lake" id="lake"></div>
-            <input type="text" id="msg-input" placeholder="زئير...">
-            <button onclick="sendMsg()">إرسال</button>
+
+        <div id="lion-player" class="breathing">🦁</div>
+
+        <div id="lake-mini" id="lake-content">
+            <div style="color: var(--gold); font-size: 0.7rem; margin-bottom: 5px;">همسات البحيرة...</div>
+            <div id="messages"></div>
         </div>
     </div>
+
 <script>
+    // إعدادات Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyCegNsEjJJDqVQK80If3lvHUKHBACBkP8U",
         authDomain: "thelastmillion-b4e69.firebaseapp.com",
@@ -43,50 +96,69 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-</script>
-  <script>
-    let userRank = "شبل"; // اللقب الافتراضي
 
-    function unlock() {
-        const a = document.getElementById('gate-ans').value;
-        if(a.includes("حفر") || a.includes("ملك")) {
-            // سؤال العابر عن لقبه قبل الدخول
-            let name = prompt("لقد عبرت البوابة.. فبأي لقب ستُعرف في العرين؟", "أسد مجهول");
-            userRank = name ? name : "أسد مجهول";
-            
-            document.getElementById('gate-section').style.display = 'none';
-            document.getElementById('main-section').style.display = 'block';
-            startSystem();
-        } else { alert("البومة تمنعك من العبور!"); }
-    }
+    let balance = 0.0000;
+    let myName = "أسد";
 
-    function startSystem() {
-        // تحميل الرسائل وعرضها باللقب
-        db.ref('lake').limitToLast(15).on('child_added', (s) => {
-            const d = s.val();
-            const time = new Date(d.time).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'});
-            document.getElementById('lake').innerHTML += `
-                <div class="bubble">
-                    <span style="color:#d4af37">[${d.rank || 'عابر'}]</span>: ${d.text} 
-                    <small style="font-size:0.6rem; color:#444; float:left">${time}</small>
-                </div>`;
-            document.getElementById('lake').scrollTop = document.getElementById('lake').scrollHeight;
-        });
-        
-        // العداد الملكي
-        let b = 0; setInterval(() => { b += 0.0001; document.getElementById('bal').innerText = b.toFixed(4); }, 2000);
-    }
-
-    function sendMsg() {
-        const m = document.getElementById('msg-input').value;
-        if(m.trim()) { 
-            db.ref('lake').push({ 
-                text: m, 
-                rank: userRank, // إرسال اللقب مع الرسالة
-                time: Date.now() 
-            }); 
-            document.getElementById('msg-input').value = ''; 
+    // 1. فتح البوابة
+    function checkGate() {
+        const val = document.getElementById('pass').value;
+        if(val.includes("حفر") || val.includes("ملك") || val.includes("أنفاس")) {
+            myName = prompt("ما هو لقبك في العرين؟") || "أسد مجهول";
+            document.getElementById('gate-screen').style.display = 'none';
+            document.getElementById('game-world').style.display = 'block';
+            initGame();
+        } else {
+            alert("البومة لا تعرفك.");
         }
     }
+
+    function initGame() {
+        // تحديد الليل والنهار
+        const hour = new Date().getHours();
+        document.body.className = (hour < 6 || hour > 18) ? "night" : "day";
+
+        // تحريك الشبل باللمس
+        const world = document.getElementById('game-world');
+        const lion = document.getElementById('lion-player');
+
+        world.addEventListener('mousedown', (e) => {
+            lion.style.left = (e.clientX - 35) + 'px';
+            lion.style.top = (e.clientY - 35) + 'px';
+            balance += 0.0001;
+            document.getElementById('bal').innerText = balance.toFixed(4);
+        });
+
+        // ربط الشات بالبحيرة
+        db.ref('lake').limitToLast(10).on('child_added', (snap) => {
+            const d = snap.val();
+            const msgDiv = document.createElement('div');
+            msgDiv.innerHTML = `<b style="color:gold">${d.rank}:</b> ${d.text}`;
+            msgDiv.style.marginBottom = "5px";
+            document.getElementById('messages').appendChild(msgDiv);
+            document.getElementById('lake-mini').scrollTop = document.getElementById('lake-mini').scrollHeight;
+        });
+
+        // ظهور الجواهر (الصيد)
+        setInterval(spawnGem, 4000);
+    }
+
+    function spawnGem() {
+        const gem = document.createElement('div');
+        gem.className = 'gem';
+        gem.innerHTML = "💎";
+        gem.style.left = Math.random() * 80 + "vw";
+        gem.style.top = Math.random() * 80 + "vh";
+        gem.onclick = () => {
+            balance += 0.0050;
+            document.getElementById('bal').innerText = balance.toFixed(4);
+            gem.remove();
+            // إرسال "نفس" للبحيرة عند الصيد الثمين
+            db.ref('lake').push({rank: myName, text: "اصطاد جوهرة!", time: Date.now()});
+        };
+        document.getElementById('game-world').appendChild(gem);
+        setTimeout(() => gem.remove(), 6000);
+    }
 </script>
- 
+</body>
+</html>
