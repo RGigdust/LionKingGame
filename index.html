@@ -1,111 +1,140 @@
+
+شعار تطبيقات Gemini
+تطبيقات Gemini
+الطلب: ازيك يا صديق الأحلام جاهز تبهر العالم ولا حتاج تاخد وقتك افضل
+التفاصيل
+event
+2 فبراير في 9:13 م
+apps
+تطبيقات Gemini
+chat
+أهلاً يا شريك الحلم! "الصح" إن الحماس اللي في صوتك ده هو الوقود اللي خلصت بيه المهمة قبل ميعادها. أنا مش بس جاهز، أنا "متحفز" لأن اللي بين إيدينا دلوقتي هو النواة الحقيقية لمشروع المليون الأخير.
+
+لقد صهرت كل ما اتفقنا عليه: (الحفر، الأكاديمية، المتجر، ومواجهة الزعيم) في كتلة برمجية واحدة متناغمة، بلمسة تقنية تخلي اللعبة سريعة وممتعة.
+
+🦁 أولاً: الافتتاحية السينمائية (The Intro)
+(تظهر على الشاشة قبل بدء اللعبة، نص يتحرك ببطء مع موسيقى غامضة):
+
+"في عالمٍ سرقت فيه 'المركزية' أحلام الجميع.. بقي مليون واحد فقط. ليس مليوناً من الذهب، بل مليوناً من 'الأحرار'. أنت لست مجرد شبلٍ يلهو.. أنت الأسد الذي سيستعيد الفجر الرقمي. تعلم.. احفر.. وقاتل.. لتصل إلى المليون الأخير."
+
+🛠️ ثانياً: الكتلة البرمجية الشاملة (The Grand Code)
+هذا الكود (HTML/JavaScript) يجمع كل الأنظمة التي صممناها. يمكنك نسخه ووضعه في أي متصفح لترى الهيكل يعمل:
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>LAST$ - العرين</title>
+    <title>أسد المليون الأخير - النسخة التجريبية</title>
     <style>
-        /* جو الغابة المظلمة */
-        body { margin: 0; background: #050a05; color: #d4af37; font-family: 'Cairo', sans-serif; overflow: hidden; }
-        
-        #game-container { position: relative; width: 100vw; height: 100vh; background: radial-gradient(circle, #0a1a0a 0%, #000 100%); }
-
-        /* البومة (المعلم) */
-        .owl-message { 
-            position: absolute; top: 10%; width: 80%; left: 10%; 
-            background: rgba(0,0,0,0.8); border: 1px solid #d4af37; 
-            padding: 15px; border-radius: 10px; z-index: 20; 
-            display: none; text-align: center; font-size: 14px;
-        }
-
-        /* الشبل العاري */
-        #shibl {
-            position: absolute; bottom: 20%; left: 50%;
-            transform: translateX(-50%); width: 150px;
-            filter: grayscale(0.5); /* عاري وتايه */
-            transition: 0.2s; z-index: 10;
-        }
-
-        /* الزار (الغبار) */
-        .zar-counter { position: absolute; top: 20px; right: 20px; font-size: 20px; font-weight: bold; }
-
-        /* شريط النَفَس (التعدين) */
-        .progress-bar {
-            position: absolute; bottom: 10%; width: 80%; left: 10%;
-            height: 10px; background: #222; border-radius: 5px; overflow: hidden;
-        }
-        #fill { width: 0%; height: 100%; background: linear-gradient(90deg, #d4af37, #ffd700); }
-
-        /* تأثير الظلام */
-        .fog { position: absolute; width: 100%; height: 100%; background: url('https://www.transparenttextures.com/patterns/asfalt-dark.png'); opacity: 0.3; pointer-events: none; }
+        body { background: #1a1a1a; color: gold; font-family: 'Arial', sans-serif; text-align: center; margin: 0; }
+        #game-container { max-width: 500px; margin: 20px auto; border: 2px solid gold; padding: 20px; border-radius: 15px; }
+        .stat-box { display: flex; justify-content: space-around; background: #333; padding: 10px; border-radius: 10px; margin-bottom: 20px; }
+        .action-btn { background: gold; color: black; border: none; padding: 15px 30px; font-weight: bold; border-radius: 5px; cursor: pointer; margin: 10px; transition: 0.3s; }
+        .action-btn:disabled { background: gray; }
+        #academy-box { background: #222; border: 1px dashed white; padding: 15px; margin-top: 20px; }
+        #status-msg { color: #00ff00; height: 20px; margin: 10px 0; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
-<div id="game-container">
-    <div class="fog"></div>
-    <div class="zar-counter">الزار: <span id="zar-val">0</span></div>
+    <h1>🦁 أسد المليون الأخير</h1>
     
-    <div id="owl-ui" class="owl-message">
-        <strong style="color: #fff;">البومة:</strong> <span id="owl-text"></span>
+    <div id="game-container">
+        <div class="stat-box">
+            <div>الذهب: <span id="balance">0</span> $LAST</div>
+            <div>المستوى: <span id="level-name">شبل</span></div>
+        </div>
+
+        <div id="status-msg">أهلاً بك في العرين..</div>
+
+        <div id="controls">
+            <button id="dig-btn" class="action-btn" onclick="startDigging()">اضغط للحفر (15 ثانية)</button>
+            <button id="hunt-btn" class="action-btn hidden" onclick="bossFight()">مواجهة الزعيم 🐗</button>
+        </div>
+
+        <div id="academy-box">
+            <h3>🦉 أكاديمية البومة</h3>
+            <p id="lesson">الدرس: ما هو الـ Web3؟</p>
+            <input type="text" id="secret-code" placeholder="أدخل كود الفيديو هنا...">
+            <button onclick="checkAcademyCode()" style="padding: 5px;">تفعيل المكافأة</button>
+        </div>
+
+        <div id="shop">
+            <h3>🛒 متجر الغابة</h3>
+            <button onclick="buyItem('shield', 500)" class="action-btn" style="font-size: 12px;">شراء درع (500 $LAST)</button>
+        </div>
     </div>
 
-    <img id="shibl" src="https://via.placeholder.com/150/8b4513/ffffff?text=SHIBL" alt="الشبل">
+    <script>
+        // حالة اللعبة (State)
+        let gameState = {
+            balance: 0,
+            level: 1, // 1: شبل, 2: شاب, 3: ملك
+            hasShield: false,
+            canDig: true
+        };
 
-    <div class="progress-bar"><div id="fill"></div></div>
-</div>
+        // نظام الحفر (Tab/Wait)
+        function startDigging() {
+            if (!gameState.canDig) return;
+            gameState.canDig = false;
+            document.getElementById('dig-btn').disabled = true;
+            document.getElementById('status-msg').innerText = "الأسد يحفر الآن... انتظر 15 ثانية";
 
-<script>
-    const owlMessages = [
-        "لا تقلق يا صغيري.. الغابة مظلمة لكن الزار في كل مكان.",
-        "احفر هنا.. الصياد بعيد حالياً، اجمع ما يكفيك لتكبر."
-    ];
-
-    let zar = parseInt(localStorage.getItem('zar_balance')) || 0;
-    let isDigging = false;
-    let progress = 0;
-
-    // تشغيل رسالة البومة عند الدخول
-    window.onload = () => {
-        const ui = document.getElementById('owl-ui');
-        const text = document.getElementById('owl-text');
-        ui.style.display = 'block';
-        text.innerText = owlMessages[0];
-        document.getElementById('zar-val').innerText = zar;
-    };
-
-    // ميكانيكا الحفر بالسحب (Drag)
-    let startX = 0;
-    document.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; });
-
-    document.addEventListener('touchmove', (e) => {
-        let move = Math.abs(e.touches[0].clientX - startX);
-        if (move > 20) { // لو في حركة سحب
-            dig();
-            document.getElementById('shibl').style.transform = `translateX(-50%) scale(1.05) rotate(${Math.sin(Date.now()/100)*5}deg)`;
+            setTimeout(() => {
+                let reward = Math.floor(Math.random() * 50) + 20;
+                gameState.balance += reward;
+                gameState.canDig = true;
+                document.getElementById('dig-btn').disabled = false;
+                document.getElementById('status-msg').innerText = `تم العثور على ${reward} عملة!`;
+                updateUI();
+            }, 15000);
         }
-    });
 
-    function dig() {
-        if (progress < 100) {
-            progress += 0.5; // سرعة الحفر (15 ثانية تقريباً)
-            document.getElementById('fill').style.width = progress + "%";
-        } else {
-            completeDigging();
+        // نظام الأكاديمية (Learn)
+        function checkAcademyCode() {
+            let code = document.getElementById('secret-code').value;
+            if (code === "LAST2026") {
+                gameState.balance += 200;
+                gameState.level = 2;
+                document.getElementById('status-msg').innerText = "🦉 أحسنت! ارتقيت لمستوى أسد شاب!";
+                document.getElementById('hunt-btn').classList.remove('hidden');
+                updateUI();
+            } else {
+                alert("الكود خطأ! شاهده في فيديو اليوتيوب.");
+            }
         }
-    }
 
-    function completeDigging() {
-        progress = 0;
-        document.getElementById('fill').style.width = "0%";
-        zar += 10;
-        localStorage.setItem('zar_balance', zar);
-        document.getElementById('zar-val').innerText = zar;
-        
-        // رسالة نجاح من البومة
-        document.getElementById('owl-text').innerText = "أحسنت! هذا الزار سيبنيك.. استمر.";
-    }
-</script>
+        // نظام المتجر (Shop)
+        function buyItem(item, price) {
+            if (gameState.balance >= price) {
+                gameState.balance -= price;
+                if (item === 'shield') gameState.hasShield = true;
+                document.getElementById('status-msg').innerText = "تم شراء الدرع! أنت الآن أقوى.";
+                updateUI();
+            } else {
+                alert("الذهب لا يكفي!");
+            }
+        }
 
+        // مواجهة الزعيم (Boss)
+        function bossFight() {
+            if (gameState.hasShield) {
+                alert("🦁 بفضل الدرع، هزمت الخنزير الزعيم وحصلت على تاج الملوك!");
+                gameState.level = 3;
+                updateUI();
+            } else {
+                alert("🐗 الخنزير قذف بك بعيداً! تحتاج لدرع من المتجر أولاً.");
+            }
+        }
+
+        // تحديث الشاشة
+        function updateUI() {
+            document.getElementById('balance').innerText = gameState.balance;
+            let levels = ["", "شبل", "أسد شاب", "الأسد الملك 👑"];
+            document.getElementById('level-name').innerText = levels[gameState.level];
+        }
+    </script>
 </body>
 </html>
