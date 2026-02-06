@@ -2,196 +2,757 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>THE LAST MILLION | العرين</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🦁 LAST Token - رحلة الشبل</title>
     <style>
-        body {
+        * {
             margin: 0;
-            overflow: hidden; /* ممنوع السكرول نهائي */
-            background-color: #1a472a; /* لون الغابة الغامق */
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            touch-action: none; /* مهم جداً للموبايل عشان السحب يشتغل */
-        }
-
-        /* أرضية الغابة */
-        #game-area {
-            position: relative;
-            width: 100vw;
+            overflow: hidden;
             height: 100vh;
-            background-image: repeating-linear-gradient(45deg, #1e5230 25%, transparent 25%, transparent 75%, #1e5230 75%, #1e5230), repeating-linear-gradient(45deg, #1e5230 25%, #1a472a 25%, #1a472a 75%, #1e5230 75%, #1e5230);
-            background-position: 0 0, 10px 10px;
-            background-size: 20px 20px;
+            background: #0a0a0a;
+            position: relative;
         }
 
-        /* الشبل (اللاعب) */
-        #hero {
-            position: absolute;
-            width: 80px;  /* حجم الشبل */
-            height: 80px;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 10;
-            pointer-events: none; /* عشان صباعك مايغطيش عليه */
-            will-change: transform, left, top; /* تحسين الأداء */
+        /* =================================== */
+        /* نظام المشاهد (Scenes) */
+        /* =================================== */
+        .scene-container {
+            width: 100%;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
         }
-        
-        /* صورة الشبل */
-        #hero img {
+
+        .scene {
             width: 100%;
             height: 100%;
-            object-fit: contain;
-            filter: drop-shadow(0 10px 5px rgba(0,0,0,0.3)); /* ظل عشان يبان مجسم */
-        }
-
-        /* دائرة التحكم تحت الصباع (عشان تعرف انت دايس فين) */
-        #joystick-indicator {
             position: absolute;
-            width: 50px; height: 50px;
-            border: 2px solid rgba(255, 215, 0, 0.5);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            display: none;
-            pointer-events: none;
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+            top: 0;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            background-size: cover;
+            background-position: center;
         }
 
-        /* واجهة المستخدم (الرصيد) */
-        .ui-panel {
+        /* الغابة المظلمة */
+        .scene.forest {
+            left: 0;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f3460 50%, #16213e 100%);
+        }
+
+        /* البحيرة */
+        .scene.lake {
+            left: 100%;
+            background: linear-gradient(180deg, #0f4c81 0%, #1d5f8a 50%, #2a6f97 100%);
+        }
+
+        /* الأكاديمية (البومة) */
+        .scene.academy {
+            left: -100%;
+            background: linear-gradient(180deg, #2d132c 0%, #801336 50%, #c72c41 100%);
+        }
+
+        /* تحريك المشاهد */
+        .scene-container.show-forest .forest { transform: translateX(0); }
+        .scene-container.show-forest .lake { transform: translateX(100%); }
+        .scene-container.show-forest .academy { transform: translateX(-100%); }
+
+        .scene-container.show-lake .forest { transform: translateX(-100%); }
+        .scene-container.show-lake .lake { transform: translateX(0); }
+        .scene-container.show-lake .academy { transform: translateX(-200%); }
+
+        .scene-container.show-academy .forest { transform: translateX(100%); }
+        .scene-container.show-academy .lake { transform: translateX(200%); }
+        .scene-container.show-academy .academy { transform: translateX(0); }
+
+        /* =================================== */
+        /* شريط المعلومات العلوي */
+        /* =================================== */
+        .top-bar {
             position: fixed;
-            top: 20px;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .currency-display {
+            display: flex;
+            gap: 20px;
+        }
+
+        .currency-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .currency-item .icon {
+            font-size: 1.3em;
+        }
+
+        .currency-item .label {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .currency-item .value {
+            font-size: 1.1em;
+            color: #ffd700;
+        }
+
+        .energy-bar {
+            flex: 1;
+            max-width: 200px;
+            height: 25px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .energy-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50 0%, #8bc34a 100%);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        /* =================================== */
+        /* الشخصية (الشبل/الأسد) */
+        /* =================================== */
+        .character-container {
+            position: absolute;
+            bottom: 20%;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.7);
-            color: #ffd700;
-            padding: 10px 25px;
-            border-radius: 20px;
-            border: 2px solid #ffd700;
-            font-weight: bold;
-            z-index: 100;
-            pointer-events: none; /* عشان ما تعطلش اللعب */
+            z-index: 50;
+            cursor: pointer;
+            user-select: none;
         }
 
-        /* رسالة توجيه */
-        .tutorial {
-            position: fixed; bottom: 50px; width: 100%; text-align: center;
-            color: rgba(255,255,255,0.6); font-size: 14px; pointer-events: none;
+        .character {
+            font-size: 10em;
+            text-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            animation: idle 3s ease-in-out infinite;
+            transition: all 0.3s;
+        }
+
+        @keyframes idle {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-15px) scale(1.05); }
+        }
+
+        .character.hunting {
+            animation: hunting 0.3s ease-in-out infinite;
+        }
+
+        @keyframes hunting {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(-5deg) scale(1.1); }
+            75% { transform: rotate(5deg) scale(1.1); }
+        }
+
+        .character.scared {
+            animation: scared 0.2s ease-in-out infinite;
+        }
+
+        @keyframes scared {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        /* مؤشر التطور */
+        .evolution-indicator {
+            position: absolute;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            border-radius: 20px;
+            white-space: nowrap;
+            color: #ffd700;
+            font-weight: bold;
+            animation: bounce 1s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-10px); }
+        }
+
+        /* =================================== */
+        /* نظام الصيد */
+        /* =================================== */
+        .prey-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 40;
+        }
+
+        .prey {
+            position: absolute;
+            font-size: 4em;
+            cursor: pointer;
+            pointer-events: auto;
+            user-select: none;
+            transition: transform 0.2s;
+            animation: move-prey 5s linear infinite;
+        }
+
+        .prey:active {
+            transform: scale(0.8);
+        }
+
+        @keyframes move-prey {
+            0% { transform: translateX(0) translateY(0); }
+            25% { transform: translateX(30px) translateY(-20px); }
+            50% { transform: translateX(-20px) translateY(20px); }
+            75% { transform: translateX(40px) translateY(-30px); }
+            100% { transform: translateX(0) translateY(0); }
+        }
+
+        .prey.caught {
+            animation: caught 0.5s ease-out forwards;
+        }
+
+        @keyframes caught {
+            0% { transform: scale(1) rotate(0deg); opacity: 1; }
+            100% { transform: scale(0) rotate(360deg); opacity: 0; }
+        }
+
+        /* =================================== */
+        /* الصياد (المركزية) */
+        /* =================================== */
+        .hunter {
+            position: absolute;
+            top: 20%;
+            right: 10%;
+            font-size: 6em;
+            animation: hunter-move 4s ease-in-out infinite;
+            z-index: 45;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .hunter.active {
+            opacity: 1;
+        }
+
+        @keyframes hunter-move {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(20px); }
+        }
+
+        /* =================================== */
+        /* البومة المرشدة */
+        /* =================================== */
+        .owl-guide {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            font-size: 4em;
+            cursor: pointer;
+            z-index: 90;
+            animation: float 2s ease-in-out infinite;
+            filter: drop-shadow(0 5px 15px rgba(255, 215, 0, 0.5));
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .owl-speech {
+            position: absolute;
+            bottom: 100px;
+            right: 0;
+            background: rgba(0, 0, 0, 0.9);
+            color: #ffd700;
+            padding: 20px;
+            border-radius: 15px;
+            max-width: 300px;
+            border: 2px solid #ffd700;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+            display: none;
+        }
+
+        .owl-speech.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .owl-speech::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            right: 50px;
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 10px solid #ffd700;
+        }
+
+        /* =================================== */
+        /* البحيرة الاجتماعية */
+        /* =================================== */
+        .lake-content {
+            padding: 100px 20px 20px;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .social-feed {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .post {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .post-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .post-header .icon {
+            font-size: 2em;
+        }
+
+        .post-header .username {
+            font-weight: bold;
+            color: #fff;
+            flex: 1;
+        }
+
+        .post-content {
+            color: #fff;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .post-actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        .post-actions button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .post-actions button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .create-post {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ffd700;
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 1.1em;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.5);
+            z-index: 90;
+        }
+
+        /* =================================== */
+        /* مؤشرات السويب */
+        /* =================================== */
+        .swipe-indicator {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 3em;
+            color: rgba(255, 255, 255, 0.3);
+            z-index: 80;
+            animation: swipe-hint 2s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        .swipe-indicator.left {
+            left: 20px;
+        }
+
+        .swipe-indicator.right {
+            right: 20px;
+        }
+
+        @keyframes swipe-hint {
+            0%, 100% { opacity: 0.3; transform: translateY(-50%) translateX(0); }
+            50% { opacity: 0.8; }
+        }
+
+        .swipe-indicator.left {
+            animation: swipe-left 2s ease-in-out infinite;
+        }
+
+        .swipe-indicator.right {
+            animation: swipe-right 2s ease-in-out infinite;
+        }
+
+        @keyframes swipe-left {
+            0%, 100% { transform: translateY(-50%) translateX(0); }
+            50% { transform: translateY(-50%) translateX(-20px); }
+        }
+
+        @keyframes swipe-right {
+            0%, 100% { transform: translateY(-50%) translateX(0); }
+            50% { transform: translateY(-50%) translateX(20px); }
+        }
+
+        /* =================================== */
+        /* الإشعارات والمكافآت */
+        /* =================================== */
+        .reward-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            border: 3px solid #ffd700;
+            z-index: 200;
+            text-align: center;
+            min-width: 300px;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.8);
+        }
+
+        .reward-popup.active {
+            animation: popupShow 0.5s forwards;
+        }
+
+        @keyframes popupShow {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        .reward-popup .icon {
+            font-size: 5em;
+            margin-bottom: 20px;
+        }
+
+        .reward-popup .title {
+            font-size: 2em;
+            color: #ffd700;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .reward-popup .amount {
+            font-size: 3em;
+            color: #fff;
+            margin: 20px 0;
+        }
+
+        .reward-popup .close-btn {
+            background: #ffd700;
+            color: #000;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        /* =================================== */
+        /* شاشة التطور */
+        /* =================================== */
+        .evolution-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 300;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .evolution-screen.active {
+            display: flex;
+            animation: fadeIn 0.5s;
+        }
+
+        .evolution-screen .gate {
+            font-size: 15em;
+            margin-bottom: 30px;
+            animation: gate-shake 0.5s ease-in-out 3;
+        }
+
+        @keyframes gate-shake {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-5deg); }
+            75% { transform: rotate(5deg); }
+        }
+
+        .evolution-screen .gate.breaking {
+            animation: gate-break 2s forwards;
+        }
+
+        @keyframes gate-break {
+            0% { transform: scale(1) rotate(0deg); opacity: 1; }
+            50% { transform: scale(1.2) rotate(10deg); }
+            100% { transform: scale(0) rotate(180deg); opacity: 0; }
+        }
+
+        .evolution-screen .new-character {
+            font-size: 12em;
+            opacity: 0;
+        }
+
+        .evolution-screen .new-character.show {
+            animation: character-appear 1s forwards;
+        }
+
+        @keyframes character-appear {
+            0% { opacity: 0; transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        /* مؤشر المرحلة */
+        .stage-indicator {
+            position: fixed;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 25px;
+            border-radius: 20px;
+            color: #ffd700;
+            font-weight: bold;
+            border: 2px solid #ffd700;
+            z-index: 95;
+        }
+
+        /* أزرار التحكم */
+        .control-buttons {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 90;
+        }
+
+        .control-btn {
+            background: rgba(255, 215, 0, 0.9);
+            color: #000;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* تأثيرات الجسيمات */
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            z-index: 60;
+            animation: particle-float 2s ease-out forwards;
+        }
+
+        @keyframes particle-float {
+            0% { 
+                opacity: 1; 
+                transform: translateY(0) scale(1); 
+            }
+            100% { 
+                opacity: 0; 
+                transform: translateY(-100px) scale(0); 
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .character { font-size: 8em; }
+            .prey { font-size: 3em; }
+            .hunter { font-size: 4em; }
+            .owl-guide { font-size: 3em; }
+            .top-bar { flex-wrap: wrap; gap: 10px; }
+            .currency-display { flex-wrap: wrap; }
         }
     </style>
 </head>
 <body>
-
-    <div id="game-area">
-        <div class="ui-panel">🦁 $LAST: <span id="score">0.0000</span></div>
-        
-        <div id="hero">
-            <img src="https://cdn-icons-png.flaticon.com/512/616/616430.png" id="hero-img">
+    <!-- شريط المعلومات العلوي -->
+    <div class="top-bar">
+        <div class="currency-display">
+            <div class="currency-item">
+                <span class="icon">⚛️</span>
+                <div>
+                    <div class="label">زار</div>
+                    <div class="value" id="zaarCount">0</div>
+                </div>
+            </div>
+            <div class="currency-item">
+                <span class="icon">💎</span>
+                <div>
+                    <div class="label">LAST</div>
+                    <div class="value" id="lastCount">0</div>
+                </div>
+            </div>
         </div>
-
-        <div id="joystick-indicator"></div>
-        
-        <div class="tutorial">اسحب صباعك في أي مكان لتحريك الشبل</div>
+        <div class="energy-bar">
+            <div class="energy-fill" id="energyFill">100%</div>
+        </div>
     </div>
 
-<script>
-    // إعدادات اللعبة
-    const hero = document.getElementById('hero');
-    const heroImg = document.getElementById('hero-img');
-    const gameArea = document.getElementById('game-area');
-    const indicator = document.getElementById('joystick-indicator');
-    const scoreEl = document.getElementById('score');
+    <!-- مؤشر المرحلة -->
+    <div class="stage-indicator" id="stageIndicator">
+        🐾 شبل صغير
+    </div>
 
-    // متغيرات الحركة (الفيزياء)
-    let heroX = window.innerWidth / 2;
-    let heroY = window.innerHeight / 2;
-    let targetX = heroX;
-    let targetY = heroY;
-    let isMoving = false;
-    let score = 0;
+    <!-- حاوية المشاهد -->
+    <div class="scene-container show-forest" id="sceneContainer">
+        <!-- مشهد الغابة -->
+        <div class="scene forest" id="forestScene">
+            <!-- الشخصية -->
+            <div class="character-container" id="characterContainer">
+                <div class="character" id="character">🐾</div>
+                <div class="evolution-indicator" id="evolutionIndicator" style="display: none;">
+                    جاهز للتطور! 🌟
+                </div>
+            </div>
 
-    // سرعة اللحاق (0.1 = ناعم وبطيء / 0.3 = سريع وحاد)
-    const smoothFactor = 0.15; 
+            <!-- الفرائس -->
+            <div class="prey-container" id="preyContainer"></div>
 
-    // --- استقبال اللمس (التحكم) ---
-    
-    // للموبايل
-    gameArea.addEventListener('touchstart', startMove, {passive: false});
-    gameArea.addEventListener('touchmove', move, {passive: false});
-    gameArea.addEventListener('touchend', endMove);
+            <!-- الصياد -->
+            <div class="hunter" id="hunter">🎯</div>
 
-    // للكمبيوتر (الماوس)
-    gameArea.addEventListener('mousedown', startMove);
-    document.addEventListener('mousemove', (e) => { if(isMoving) move(e); });
-    document.addEventListener('mouseup', endMove);
+            <!-- مؤشرات السويب -->
+            <div class="swipe-indicator left">🌊</div>
+            <div class="swipe-indicator right">🦉</div>
+        </div>
 
-    function startMove(e) {
-        isMoving = true;
-        indicator.style.display = 'block';
-        updateTarget(e);
-    }
+        <!-- مشهد البحيرة -->
+        <div class="scene lake" id="lakeScene">
+            <div class="lake-content">
+                <h2 style="color: #fff; text-align: center; margin-bottom: 30px;">
+                    🌊 البحيرة الاجتماعية
+                </h2>
+                <div class="social-feed" id="socialFeed">
+                    <!-- المنشورات ستظهر هنا -->
+                </div>
+            </div>
+            <button class="create-post" onclick="createPost()">✍️ شارك مغامرتك</button>
+        </div>
 
-    function move(e) {
-        if(!isMoving) return;
-        e.preventDefault(); // منع الصفحة من السكرول
-        updateTarget(e);
-    }
+        <!-- مشهد الأكاديمية -->
+        <div class="scene academy" id="academyScene">
+            <div style="padding: 100px 20px; color: #fff; text-align: center;">
+                <h1 style="font-size: 3em; margin-bottom: 30px;">🦉 أكاديمية البومة</h1>
+                <div id="dailyTasks" style="max-width: 500px; margin: 0 auto;">
+                    <!-- المهام اليومية -->
+                </div>
+            </div>
+        </div>
+    </div>
 
-    function endMove() {
-        isMoving = false;
-        indicator.style.display = 'none';
-    }
+    <!-- البومة المرشدة -->
+    <div class="owl-guide" id="owlGuide" onclick="toggleOwlSpeech()">🦉</div>
+    <div class="owl-speech" id="owlSpeech">
+        <p id="owlMessage">مرحباً أيها الشبل! اسحب لليمين للذهاب للأكاديمية، ولليسار للبحيرة!</p>
+    </div>
 
-    function updateTarget(e) {
-        // حساب مكان الصباع/الماوس
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        
-        targetX = clientX;
-        targetY = clientY;
+    <!-- نافذة المكافأة -->
+    <div class="reward-popup" id="rewardPopup">
+        <div class="icon" id="rewardIcon">⚛️</div>
+        <div class="title" id="rewardTitle">صيد ناجح!</div>
+        <div class="amount" id="rewardAmount">+10 زار</div>
+        <p id="rewardMessage" style="color: #fff; margin: 15px 0;"></p>
+        <button class="close-btn" onclick="closeRewardPopup()">رائع! 🎉</button>
+    </div>
 
-        // تحريك المؤشر تحت الصباع
-        indicator.style.left = clientX + 'px';
-        indicator.style.top = clientY + 'px';
-    }
+    <!-- شاشة التطور -->
+    <div class="evolution-screen" id="evolutionScreen">
+        <div class="gate" id="evolutionGate">🚪</div>
+        <div class="new-character" id="newCharacter"></div>
+        <h1 id="evolutionTitle" style="color: #ffd700; margin: 30px 0;"></h1>
+        <button class="close-btn" onclick="closeEvolutionScreen()" style="margin-top: 30px;">
+            ابدأ المرحلة الجديدة! 🎊
+        </button>
+    </div>
 
-    // --- محرك اللعبة (Game Loop) ---
-    // دي الدالة اللي بتشتغل 60 مرة في الثانية عشان الحركة تكون ناعمة
-    function gameLoop() {
-        if (isMoving) {
-            // معادلة الحركة الناعمة (Lerp)
-            // الشبل بيتحرك مسافة صغيرة ناحية الهدف في كل فريم
-            const dx = targetX - heroX;
-            const dy = targetY - heroY;
-            
-            heroX += dx * smoothFactor;
-            heroY += dy * smoothFactor;
+    <!-- أزرار التحكم -->
+    <div class="control-buttons">
+        <button class="control-btn" onclick="openSettings()">⚙️ الإعدادات</button>
+        <button class="control-btn" id="evolveBtn" onclick="evolve()" style="display: none;">
+            ✨ تطور الآن
+        </button>
+    </div>
 
-            // تغيير اتجاه وش الشبل (يمين/شمال)
-            if (dx > 5) {
-                heroImg.style.transform = "scaleX(-1)"; // وش يمين
-            } else if (dx < -5) {
-                heroImg.style.transform = "scaleX(1)"; // وش شمال
-            }
-
-            // زيادة السكور وهمية عشان تحس باللعب
-            score += 0.0001;
-            scoreEl.innerText = score.toFixed(4);
-        } else {
-            // لو واقف، خليه يتنفس (يكبر ويصغر شوية)
-            // دي هنعملها بـ CSS animation بس هنا للتوضيح
-        }
-
-        // تطبيق الحركة على العنصر
-        hero.style.left = heroX + 'px';
-        hero.style.top = heroY + 'px';
-
-        // طلب الفريم اللي بعده
-        requestAnimationFrame(gameLoop);
-    }
-
-    // تشغيل المحرك
-    gameLoop();
-
-</script>
+    <script src="game.js"></script>
 </body>
 </html>
