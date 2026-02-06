@@ -2,103 +2,107 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>🦁 أسطورة ملك الغابة - التطور</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>🦁 أسطورة ملك الغابة</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
-        body { overflow: hidden; background: #2d5a27; font-family: 'Segoe UI', sans-serif; }
+        body { overflow: hidden; background: #2d5a27; font-family: 'Segoe UI', Tahoma, sans-serif; }
 
-        #gameWorld { position: relative; width: 100vw; height: 100vh; background: #3d7038; overflow: hidden; }
+        #gameContainer { position: relative; width: 100vw; height: 100vh; background: #3d7038; }
         
         /* البحيرة والمنصة */
-        #lake { position: absolute; bottom: 20px; left: 20px; width: 250px; height: 180px; background: #4fa1ff; border-radius: 50%; border: 4px solid #fff; z-index: 10; }
-        #platform { position: absolute; top: -40px; left: 50%; transform: translateX(-50%); background: #8b4513; color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; white-space: nowrap; }
+        #lake { position: absolute; bottom: 20px; left: 20px; width: 220px; height: 160px; background: #4fa1ff; border-radius: 50%; border: 4px solid #fff; z-index: 10; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; }
+        #platform { position: absolute; top: -30px; background: #8b4513; padding: 5px; border-radius: 5px; width: 120px; text-align: center; }
 
         /* الكائنات */
-        .entity { position: absolute; transition: transform 0.2s; display: flex; align-items: center; justify-content: center; z-index: 50; }
-        #character { font-size: 50px; z-index: 100; }
-        #hunter { font-size: 50px; display: none; z-index: 110; color: red; }
-        .prey { font-size: 30px; }
-        .chest { font-size: 35px; background: rgba(255,215,0,0.2); border-radius: 10px; }
-        .chameleon { font-size: 30px; filter: opacity(0.5); }
-
-        /* واجهة المستخدم */
-        #hud { position: fixed; top: 10px; width: 100%; display: flex; justify-content: space-around; z-index: 2000; pointer-events: none; }
-        .status { background: rgba(0,0,0,0.8); color: #ffd700; padding: 8px 15px; border-radius: 15px; border: 1px solid #ffd700; }
+        .entity { position: absolute; transition: transform 0.2s linear; display: flex; align-items: center; justify-content: center; z-index: 50; pointer-events: none; }
+        #character { font-size: 60px; z-index: 100; transition: left 0.1s ease-out, top 0.1s ease-out; }
+        #hunter { font-size: 50px; display: none; z-index: 110; }
         
-        #owl { position: fixed; bottom: 20px; right: 20px; font-size: 3em; z-index: 1000; cursor: pointer; }
-        .digging { filter: brightness(0.5); transform: scale(0.8); }
+        /* واجهة المستخدم */
+        #hud { position: fixed; top: 10px; width: 100%; display: flex; justify-content: space-around; z-index: 2000; }
+        .status { background: rgba(0,0,0,0.8); color: #ffd700; padding: 10px; border-radius: 15px; border: 1px solid #ffd700; min-width: 80px; text-align: center; }
+        
+        #owl { position: fixed; bottom: 20px; right: 20px; font-size: 4em; z-index: 1000; cursor: pointer; transition: 1s; }
+        .digging { filter: brightness(0.4) scale(0.7); }
     </style>
 </head>
 <body>
 
 <div id="hud">
-    <div class="status">💰 عملات: <span id="coins">0</span></div>
-    <div class="status">🧬 المستوى: <span id="stage">شبل</span></div>
-    <div class="status">🏹 الصياد: <span id="hunterStatus">نائم</span></div>
+    <div class="status">💰 <span id="coins">0</span></div>
+    <div class="status">🧬 <span id="stage">شبل</span></div>
+    <div class="status" id="hStatus">🏹 نائم</div>
 </div>
 
-<div id="gameWorld" id="mainStage">
-    <div id="lake">
-        <div id="platform">📢 منصة المغامرات: استرح هنا!</div>
-    </div>
+<div id="gameContainer">
+    <div id="lake"><div id="platform">منصة المغامرات</div>🛡️ منطقة آمنة</div>
     <div id="character" class="entity">🦁</div>
     <div id="hunter" class="entity">🕵️‍♂️</div>
-    </div>
+</div>
 
 <div id="owl">🦉</div>
 
 <script>
-    const world = document.getElementById('gameWorld');
     const char = document.getElementById('character');
     const hunter = document.getElementById('hunter');
     const owl = document.getElementById('owl');
+    const container = document.getElementById('gameContainer');
     
     let coins = 0;
-    let evolution = 0; // 0: شبل, 1: شاب, 2: أسد
-    let charX = 200, charY = 200;
+    let evolution = 0; // 0:شبل, 1:شاب, 2:أسد
+    let isDigging = false;
     let hunterActive = false;
-    let speedMultiplier = 1;
+    let speed = 1;
 
-    // --- نظام الحركة ---
-    window.addEventListener('touchstart', moveEvent);
-    window.addEventListener('touchmove', moveEvent);
-    function moveEvent(e) {
-        charX = e.touches[0].clientX - 40;
-        charY = e.touches[0].clientY - 40;
-        char.style.left = charX + 'px';
-        char.style.top = charY + 'px';
-        checkCollisions();
+    // --- نظام الحركة المطور (يعمل على كروم والموبايل) ---
+    function moveHandler(e) {
+        if (isDigging) return;
+        let x, y;
+        if (e.touches) {
+            x = e.touches[0].clientX;
+            y = e.touches[0].clientY;
+        } else {
+            x = e.clientX;
+            y = e.clientY;
+        }
+        char.style.left = (x - 40) + 'px';
+        char.style.top = (y - 40) + 'px';
+        checkGameLogic(x, y);
     }
 
+    container.addEventListener('touchmove', moveHandler, {passive: false});
+    container.addEventListener('mousemove', (e) => { if(e.buttons === 1) moveHandler(e); });
+
     // --- توليد العناصر ---
-    function spawn(type, emoji, className) {
+    function createItem(emoji, cls) {
         const el = document.createElement('div');
-        el.className = 'entity ' + className;
+        el.className = 'entity ' + cls;
         el.innerHTML = emoji;
-        el.style.left = Math.random() * (window.innerWidth - 50) + 'px';
-        el.style.top = Math.random() * (window.innerHeight - 50) + 'px';
-        world.appendChild(el);
+        resetPos(el);
+        container.appendChild(el);
         return el;
     }
 
-    // إنشاء فرائس وصناديق مبدئياً
-    let rabbit = spawn('prey', '🐇', 'prey');
-    let chest = spawn('chest', '📦', 'chest');
-    let fakeProject = spawn('chameleon', '🦎', 'chameleon');
+    function resetPos(el) {
+        el.style.left = Math.random() * (window.innerWidth - 60) + 'px';
+        el.style.top = Math.random() * (window.innerHeight - 60) + 'px';
+    }
 
-    // --- نظام التصادم والتفاعل ---
-    function checkCollisions() {
+    let prey = createItem('🐇', 'prey');
+    let chameleon = createItem('🦎', 'chameleon');
+    let chest = createItem('📦', 'chest');
+
+    // --- منطق اللعبة ---
+    function checkGameLogic(x, y) {
         const charRect = char.getBoundingClientRect();
+        
+        // 1. الصيد حسب العمر
+        if (isColliding(charRect, prey.getBoundingClientRect())) {
+            coins += (evolution + 1) * 5;
+            resetPos(prey);
+            updateHUD();
+            checkEvolution();
+        }
 
-        // 1. صيد الفرائس
-        [rabbit].forEach(p => {
-            if (isColliding(charRect, p.getBoundingClientRect())) {
-                let reward = (evolution + 1) * 5;
-                coins += reward;
-                updateHUD();
-                resetEntity(p);
-                checkEvolution();
-            }
-        });
-
+        // 2. الحرباء (مش
