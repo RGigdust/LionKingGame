@@ -3,146 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>🦁 مغامرة الشبل والصياد</title>
+    <title>🦁 أسطورة ملك الغابة - التطور</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
-        body { overflow: hidden; background: #2d5a27; font-family: sans-serif; }
+        body { overflow: hidden; background: #2d5a27; font-family: 'Segoe UI', sans-serif; }
 
-        /* الغابة والبيئة */
-        #gameWorld { position: relative; width: 100vw; height: 100vh; background: #4a7c44; }
-        .tree { position: absolute; font-size: 50px; z-index: 5; }
-        #lake { 
-            position: absolute; bottom: 50px; left: 50px; 
-            width: 200px; height: 150px; 
-            background: #4fa1ff; border-radius: 50%; 
-            border: 5px solid #3a80d1; z-index: 10;
-            display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;
-        }
+        #gameWorld { position: relative; width: 100vw; height: 100vh; background: #3d7038; overflow: hidden; }
+        
+        /* البحيرة والمنصة */
+        #lake { position: absolute; bottom: 20px; left: 20px; width: 250px; height: 180px; background: #4fa1ff; border-radius: 50%; border: 4px solid #fff; z-index: 10; }
+        #platform { position: absolute; top: -40px; left: 50%; transform: translateX(-50%); background: #8b4513; color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; white-space: nowrap; }
 
-        /* الشخصيات */
-        #character { 
-            position: absolute; width: 80px; height: 80px; font-size: 60px; 
-            z-index: 100; transition: transform 0.1s; display: flex; align-items: center; justify-content: center;
-        }
-        #hunter { 
-            position: absolute; width: 70px; height: 70px; font-size: 50px; 
-            z-index: 90; transition: all 0.2s linear; 
-        }
-        #owl { position: fixed; bottom: 20px; right: 20px; font-size: 3em; z-index: 1000; cursor: pointer; transition: 1s; }
+        /* الكائنات */
+        .entity { position: absolute; transition: transform 0.2s; display: flex; align-items: center; justify-content: center; z-index: 50; }
+        #character { font-size: 50px; z-index: 100; }
+        #hunter { font-size: 50px; display: none; z-index: 110; color: red; }
+        .prey { font-size: 30px; }
+        .chest { font-size: 35px; background: rgba(255,215,0,0.2); border-radius: 10px; }
+        .chameleon { font-size: 30px; filter: opacity(0.5); }
 
-        /* تأثير الحفر */
-        .digging { opacity: 0.3; transform: scale(0.7) translateY(20px) !important; }
-        .dust { position: absolute; font-size: 20px; animation: blow 1s infinite; }
-        @keyframes blow { 0% { opacity:1; } 100% { opacity:0; transform: translateY(-20px); } }
-
-        #hud { position: fixed; top: 10px; width: 100%; display: flex; justify-content: space-around; z-index: 2000; }
-        .status { background: rgba(0,0,0,0.7); color: #fff; padding: 10px; border-radius: 10px; }
+        /* واجهة المستخدم */
+        #hud { position: fixed; top: 10px; width: 100%; display: flex; justify-content: space-around; z-index: 2000; pointer-events: none; }
+        .status { background: rgba(0,0,0,0.8); color: #ffd700; padding: 8px 15px; border-radius: 15px; border: 1px solid #ffd700; }
+        
+        #owl { position: fixed; bottom: 20px; right: 20px; font-size: 3em; z-index: 1000; cursor: pointer; }
+        .digging { filter: brightness(0.5); transform: scale(0.8); }
     </style>
 </head>
 <body>
 
 <div id="hud">
-    <div class="status">⚛️ الزار: <span id="score">0</span></div>
-    <div class="status" id="timerBox" style="display:none;">⏳ حفر: <span id="digTimer">15</span></div>
+    <div class="status">💰 عملات: <span id="coins">0</span></div>
+    <div class="status">🧬 المستوى: <span id="stage">شبل</span></div>
+    <div class="status">🏹 الصياد: <span id="hunterStatus">نائم</span></div>
 </div>
 
-<div id="gameWorld">
-    <div id="lake">بحيرة آمنة</div>
-    <div class="tree" style="top:10%; left:20%;">🌳</div>
-    <div class="tree" style="top:50%; left:80%;">🌲</div>
-    <div class="tree" style="top:70%; left:30%;">🌳</div>
-    
-    <div id="character">🦁</div>
-    <div id="hunter">🏹</div>
-</div>
+<div id="gameWorld" id="mainStage">
+    <div id="lake">
+        <div id="platform">📢 منصة المغامرات: استرح هنا!</div>
+    </div>
+    <div id="character" class="entity">🦁</div>
+    <div id="hunter" class="entity">🕵️‍♂️</div>
+    </div>
 
 <div id="owl">🦉</div>
 
 <script>
-    const character = document.getElementById('character');
+    const world = document.getElementById('gameWorld');
+    const char = document.getElementById('character');
     const hunter = document.getElementById('hunter');
     const owl = document.getElementById('owl');
-    const scoreDisplay = document.getElementById('score');
-    const lake = document.getElementById('lake');
     
-    let charX = window.innerWidth / 2, charY = window.innerHeight / 2;
-    let huntX = 0, huntY = 0;
-    let score = 0;
-    let isDigging = false;
-    let isSafe = false;
+    let coins = 0;
+    let evolution = 0; // 0: شبل, 1: شاب, 2: أسد
+    let charX = 200, charY = 200;
+    let hunterActive = false;
+    let speedMultiplier = 1;
 
-    // تحريك الشبل باللمس
-    window.addEventListener('touchmove', (e) => {
+    // --- نظام الحركة ---
+    window.addEventListener('touchstart', moveEvent);
+    window.addEventListener('touchmove', moveEvent);
+    function moveEvent(e) {
         charX = e.touches[0].clientX - 40;
         charY = e.touches[0].clientY - 40;
-        updatePosition();
-    });
-
-    function updatePosition() {
-        character.style.left = charX + 'px';
-        character.style.top = charY + 'px';
-        
-        // التحقق من الأمان في البحيرة
-        const rect = character.getBoundingClientRect();
-        const lakeRect = lake.getBoundingClientRect();
-        isSafe = (rect.left < lakeRect.right && rect.right > lakeRect.left && rect.top < lakeRect.bottom && rect.bottom > lakeRect.top);
+        char.style.left = charX + 'px';
+        char.style.top = charY + 'px';
+        checkCollisions();
     }
 
-    // نظام الحفر (أمر البومة)
-    owl.onclick = () => {
-        if(isDigging) return;
-        
-        // البومة تطير
-        owl.style.transform = "translateY(-500px) translateX(-200px)";
-        
-        isDigging = true;
-        character.classList.add('digging');
-        document.getElementById('timerBox').style.display = 'block';
-        
-        let timeLeft = 15;
-        let interval = setInterval(() => {
-            timeLeft--;
-            document.getElementById('digTimer').innerText = timeLeft;
-            if(timeLeft <= 0) {
-                clearInterval(interval);
-                isDigging = false;
-                character.classList.remove('digging');
-                document.getElementById('timerBox').style.display = 'none';
-                owl.style.transform = "translateY(0) translateX(0)"; // البومة ترجع
-            }
-        }, 1000);
-    };
-
-    // ذكاء الصياد الاصطناعي
-    function moveHunter() {
-        if (!isDigging && !isSafe) {
-            // الصياد يطارد الأسد
-            huntX += (charX - huntX) * 0.02;
-            huntY += (charY - huntY) * 0.02;
-        } else {
-            // الصياد يتجول بعيداً لو الأسد مختفي أو في الماء
-            huntX += Math.sin(Date.now()/1000) * 5;
-        }
-        
-        hunter.style.left = huntX + 'px';
-        hunter.style.top = huntY + 'px';
-
-        // التصادم مع الصياد
-        if (!isDigging && !isSafe) {
-            let dx = charX - huntX;
-            let dy = charY - huntY;
-            let distance = Math.sqrt(dx*dx + dy*dy);
-            if (distance < 50) {
-                score = Math.max(0, score - 1);
-                scoreDisplay.innerText = score;
-                // دفعة بسيطة للوراء عند الاصطدام
-                huntX -= 100;
-            }
-        }
-        requestAnimationFrame(moveHunter);
+    // --- توليد العناصر ---
+    function spawn(type, emoji, className) {
+        const el = document.createElement('div');
+        el.className = 'entity ' + className;
+        el.innerHTML = emoji;
+        el.style.left = Math.random() * (window.innerWidth - 50) + 'px';
+        el.style.top = Math.random() * (window.innerHeight - 50) + 'px';
+        world.appendChild(el);
+        return el;
     }
 
-    moveHunter();
-</script>
-</body>
-</html>
+    // إنشاء فرائس وصناديق مبدئياً
+    let rabbit = spawn('prey', '🐇', 'prey');
+    let chest = spawn('chest', '📦', 'chest');
+    let fakeProject = spawn('chameleon', '🦎', 'chameleon');
+
+    // --- نظام التصادم والتفاعل ---
+    function checkCollisions() {
+        const charRect = char.getBoundingClientRect();
+
+        // 1. صيد الفرائس
+        [rabbit].forEach(p => {
+            if (isColliding(charRect, p.getBoundingClientRect())) {
+                let reward = (evolution + 1) * 5;
+                coins += reward;
+                updateHUD();
+                resetEntity(p);
+                checkEvolution();
+            }
+        });
+
