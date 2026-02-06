@@ -1,182 +1,72 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>الغابة المطورة</title>
+    <title>THE LAST - العرين</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { width: 100vw; height: 100vh; overflow: hidden; background: #2d5a27; touch-action: none; font-family: sans-serif; }
+        body { margin: 0; background: #000; color: gold; font-family: sans-serif; overflow: hidden; }
+        #game-stage { position: relative; width: 100vw; height: 100vh; background: #050a05; }
         
-        #game-area { position: relative; width: 100%; height: 100%; background: #3d7038; }
+        .vault-header { position: absolute; top: 0; width: 100%; padding: 20px; background: rgba(0,0,0,0.9); border-bottom: 1px solid #d4af37; text-align: center; z-index: 100; }
         
-        /* الشبل */
-        #character { 
-            position: absolute; font-size: 50px; 
-            width: 60px; height: 60px;
-            display: flex; align-items: center; justify-content: center;
-            z-index: 1000; pointer-events: none;
-            left: 50%; top: 50%; transform: translate(-50%, -50%);
-        }
+        /* الشبل (الصورة الأولى اللي رفعتها) */
+        #shibl { position: absolute; bottom: 20%; left: 50%; transform: translateX(-50%); width: 150px; z-index: 10; transition: 0.1s; }
+        
+        /* البومة (الصورة التانية) */
+        #mentor-owl { position: absolute; top: 100px; right: 20px; width: 60px; z-index: 50; }
 
-        .tree { position: absolute; font-size: 40px; z-index: 10; pointer-events: none; }
-        .item { position: absolute; font-size: 35px; z-index: 50; transition: transform 0.2s; }
-        #lake { position: absolute; bottom: 0; left: 0; width: 150px; height: 150px; background: rgba(0, 150, 255, 0.5); border-radius: 0 100% 0 0; border: 3px solid white; z-index: 5; display: flex; align-items: flex-end; padding: 10px; color: white; font-size: 12px; }
-
-        #hud { position: fixed; top: 0; width: 100%; display: flex; justify-content: space-around; background: rgba(0,0,0,0.5); color: gold; padding: 10px; z-index: 2000; pointer-events: none; }
-        #owl { position: fixed; bottom: 20px; right: 20px; font-size: 50px; z-index: 2000; cursor: pointer; }
-        .digging { filter: brightness(0.3); }
+        .dig-progress { position: absolute; bottom: 12%; width: 70%; left: 15%; height: 10px; background: #222; border: 1px solid gold; border-radius: 10px; overflow: hidden; }
+        #fill { width: 0%; height: 100%; background: linear-gradient(90deg, #d4af37, #fff); }
+        
+        .shake { animation: shake 0.2s infinite; }
+        @keyframes shake { 0% { transform: translateX(-50%) rotate(0deg); } 50% { transform: translateX(-52%) rotate(-2deg); } 100% { transform: translateX(-48%) rotate(2deg); } }
     </style>
 </head>
 <body>
 
-<div id="hud">
-    <div>💰 <span id="coins">0</span></div>
-    <div>🧬 <span id="level">شبل</span></div>
-    <div id="hStatus">🏹 نائم</div>
+<div id="game-stage">
+    <div class="vault-header">
+        <div style="font-size: 18px;">الوعاء الملكي: <span id="vault-total">250,000</span></div>
+        <div style="font-size: 14px; color: #aaa;">الزار المجموع: <span id="zar-val">0</span></div>
+    </div>
+
+    <img id="mentor-owl" src="1769973611114.png" alt="البومة"> 
+    <img id="shibl" src="1769919542610.png" alt="الشبل">
+
+    <div class="dig-progress"><div id="fill"></div></div>
 </div>
-
-<div id="game-area">
-    <div id="lake">البحيرة</div>
-    <div id="character">🦁</div>
-    <div id="hunter" class="item" style="display:none;">🕵️‍♂️</div>
-    <div id="prey" class="item">🐇</div>
-    <div id="chameleon" class="item">🦎</div>
-
-    <div class="tree" style="top:20%; left:15%;">🌳</div>
-    <div class="tree" style="top:50%; left:80%;">🌲</div>
-    <div class="tree" style="top:70%; left:20%;">🌳</div>
-</div>
-
-<div id="owl">🦉</div>
 
 <script>
-    const char = document.getElementById('character');
-    const gameArea = document.getElementById('game-area');
-    const coinsTxt = document.getElementById('coins');
-    const levelTxt = document.getElementById('level');
-    const hunter = document.getElementById('hunter');
-    const owl = document.getElementById('owl');
-    
-    let coins = 0;
-    let evolution = 0;
-    let speedMult = 1; // للتحكم في التبطيئ
-    let isDigging = false;
+    let zar = 0;
+    let vault = 250000;
+    let progress = 0;
+    let miningInterval;
 
-    // --- الحركة الذهبية للموبايل ---
-    // نستخدم 'touchstart' و 'touchmove' مع تحديد الإحداثيات مباشرة
-    function updateLocation(e) {
-        if (isDigging) return;
+    const shibl = document.getElementById('shibl');
+    const fill = document.getElementById('fill');
+
+    // ميكانيكا الحفر (لمس مطول)
+    shibl.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        let touch = e.touches[0];
-        
-        // تحريك الشبل مباشرة لمكان الصباع
-        // إذا لمسنا الحرباء، الحركة هتكون أثقل (نحاكي التبطيئ)
-        let targetX = touch.clientX;
-        let targetY = touch.clientY;
-
-        char.style.left = targetX + 'px';
-        char.style.top = targetY + 'px';
-        
-        checkCollisions();
-    }
-
-    gameArea.addEventListener('touchstart', updateLocation, {passive: false});
-    gameArea.addEventListener('touchmove', updateLocation, {passive: false});
-
-    // --- التصادم والفعاليات ---
-    function checkCollisions() {
-        let charRect = char.getBoundingClientRect();
-        let prey = document.getElementById('prey');
-        let cham = document.getElementById('chameleon');
-
-        // 1. صيد الفريسة
-        if (isHit(charRect, prey.getBoundingClientRect())) {
-            coins += (evolution === 2) ? 20 : 10; // الأسد ياخد أكتر
-            if(evolution === 2) { // الأسد يقضي على الصيد
-                prey.style.transform = "scale(0)";
-                setTimeout(() => { prey.style.transform = "scale(1)"; spawn(prey); }, 400);
-            } else {
-                spawn(prey);
+        shibl.classList.add('shake');
+        miningInterval = setInterval(() => {
+            progress += 2; 
+            fill.style.width = progress + "%";
+            if (progress >= 100) {
+                progress = 0;
+                zar += 10;
+                vault -= 10;
+                document.getElementById('zar-val').innerText = zar;
+                document.getElementById('vault-total').innerText = vault.toLocaleString();
             }
-            updateStats();
-        }
+        }, 100);
+    });
 
-        // 2. الحرباء (التبطئ)
-        if (isHit(charRect, cham.getBoundingClientRect())) {
-            // بما إن الحركة مباشرة مع الصباع، التبطيئ هنا "بصري" و "تعطيلي"
-            gameArea.removeEventListener('touchmove', updateLocation); // وقف الحركة
-            char.style.filter = "grayscale(1) blur(2px)";
-            setTimeout(() => {
-                gameArea.addEventListener('touchmove', updateLocation, {passive: false});
-                char.style.filter = "none";
-            }, 3000); // تجمد لمدة 3 ثواني
-            spawn(cham);
-        }
-    }
-
-    function isHit(r1, r2) {
-        return !(r1.right < r2.left || r1.left > r2.right || r1.bottom < r2.top || r1.top > r2.bottom);
-    }
-
-    function spawn(el) {
-        el.style.left = Math.random() * 80 + 'vw';
-        el.style.top = Math.random() * 80 + 'vh';
-    }
-
-    function updateStats() {
-        coinsTxt.innerText = coins;
-        if (coins >= 50 && evolution === 0) { evolution = 1; levelTxt.innerText = "شاب"; char.innerText = "🐆"; }
-        if (coins >= 150 && evolution === 1) { evolution = 2; levelTxt.innerText = "أسد ملك"; char.innerText = "🦁"; char.style.fontSize = "70px"; }
-    }
-
-    // --- البومة والحفر (NFT) ---
-    owl.onclick = () => {
-        if (isDigging) return;
-        isDigging = true;
-        char.classList.add('digging');
-        alert("🦉 البومة تعلمك: جاري الحفر عن شظايا NFT (انتظر 15 ثانية)");
-        
-        setTimeout(() => {
-            isDigging = false;
-            char.classList.remove('digging');
-            coins += 50;
-            alert("✨ وجدت كنز NFT بقيمة 50 عملة!");
-            updateStats();
-        }, 15000);
-    };
-
-    // --- الصياد والبحيرة ---
-    setInterval(() => {
-        let hunterGo = Math.random() > 0.5;
-        hunter.style.display = hunterGo ? 'block' : 'none';
-        document.getElementById('hStatus').innerText = hunterGo ? "🏹 اهرب!" : "🏹 نائم";
-        if(hunterGo) spawn(hunter);
-    }, 10000);
-
-    setInterval(() => {
-        if (hunter.style.display === 'block') {
-            let hX = hunter.offsetLeft, hY = hunter.offsetTop;
-            let cX = char.offsetLeft, cY = char.offsetTop;
-            
-            // لو الأسد في البحيرة الصياد يبعد
-            if (cX < 150 && cY > (window.innerHeight - 150)) {
-                hunter.style.left = (hX + 10) + 'px';
-            } else {
-                hunter.style.left = hX + (cX - hX) * 0.02 + 'px';
-                hunter.style.top = hY + (cY - hY) * 0.02 + 'px';
-            }
-            
-            if(isHit(char.getBoundingClientRect(), hunter.getBoundingClientRect())) {
-                coins = Math.max(0, coins - 1);
-                coinsTxt.innerText = coins;
-            }
-        }
-    }, 50);
-
-    spawn(document.getElementById('prey'));
-    spawn(document.getElementById('chameleon'));
+    shibl.addEventListener('touchend', () => {
+        shibl.classList.remove('shake');
+        clearInterval(miningInterval);
+    });
 </script>
 </body>
 </html>
-
