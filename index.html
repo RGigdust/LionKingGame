@@ -1,4 +1,4 @@
-َ<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -18,7 +18,6 @@
             background: #000;
         }
 
-        /* الكاميرا ومنطقة اللمس */
         #camera {
             position: fixed;
             top: 0;
@@ -28,34 +27,31 @@
             overflow: hidden;
         }
 
-        /* طبقة تحكم شفافة تغطي الشاشة للسحب */
+        /* تم تعديل طبقة اللمس هنا لتكون متفاعلة */
         #touch-layer {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 999;
+            z-index: 50; /* تحت الـ HUD وفوق الخلفية */
             touch-action: none;
         }
 
         #gameWorld {
             position: relative;
-            width: 300vw;
-            height: 300vh;
+            width: 100vw;
+            height: 100vh;
         }
 
-        /* الخلفيات */
         .sky-layer {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             z-index: 1;
-            transition: background 3s;
         }
         .sky-layer.day { background: linear-gradient(180deg, #87CEEB 0%, #90EE90 100%); }
-        .sky-layer.night { background: linear-gradient(180deg, #0a0a2e 0%, #1a1a2e 100%); }
 
-        /* الشخصية - الشبل */
+        /* تعديل الشبل: شلنا pointer-events: none عشان يلمس */
         #character {
             position: absolute;
             width: 100px;
@@ -65,12 +61,14 @@
             align-items: center;
             justify-content: center;
             z-index: 100;
-            pointer-events: none;
             will-change: left, top, transform;
             transition: transform 0.1s linear;
+            cursor: pointer;
+            /* تم ضبط المكان الابتدائي في النص */
+            left: calc(50% - 50px);
+            top: calc(50% - 50px);
         }
 
-        /* واجهة المستخدم HUD */
         #hud {
             position: fixed;
             top: 0; left: 0; width: 100%; padding: 15px;
@@ -86,10 +84,8 @@
             color: #ffd700;
         }
 
-        /* البومة والرسائل */
         #owl { position: fixed; bottom: 20px; right: 20px; font-size: 4em; z-index: 1000; cursor: pointer; }
 
-        /* أنيميشن التنفس عند الوقوف */
         .breathing { animation: breathe 2s ease-in-out infinite; }
         @keyframes breathe {
             0%, 100% { transform: scale(1); }
@@ -101,7 +97,6 @@
 
     <div id="camera">
         <div id="touch-layer"></div>
-
         <div id="gameWorld">
             <div class="sky-layer day" id="skyLayer"></div>
             <div id="character" class="breathing">🦁</div>
@@ -119,66 +114,57 @@
         const character = document.getElementById('character');
         const touchLayer = document.getElementById('touch-layer');
         
-        // متغيرات الحركة (نفس اللي طلبتها بالضبط)
-        let currentX = window.innerWidth / 2;
-        let currentY = window.innerHeight / 2;
+        let currentX = window.innerWidth / 2 - 50;
+        let currentY = window.innerHeight / 2 - 50;
         let targetX = currentX;
         let targetY = currentY;
         let isMoving = false;
 
-        // 1. التقاط اللمس
-        touchLayer.addEventListener('touchstart', (e) => {
-            isMoving = true;
-            updateTarget(e.touches[0]);
-        }, {passive: false});
-
-        touchLayer.addEventListener('touchmove', (e) => {
-            e.preventDefault(); 
-            updateTarget(e.touches[0]);
-        }, {passive: false});
-
-        touchLayer.addEventListener('touchend', () => { isMoving = false; });
-
-        // للماوس
-        touchLayer.addEventListener('mousedown', (e) => { isMoving = true; updateTarget(e); });
-        touchLayer.addEventListener('mousemove', (e) => { if(isMoving) updateTarget(e); });
-        window.addEventListener('mouseup', () => { isMoving = false; });
-
         function updateTarget(input) {
-            // خصم نصف حجم الشبل (50) عشان الصباع يكون في النص بالظبط
             targetX = input.clientX - 50;
             targetY = input.clientY - 50;
         }
 
-        // 2. محرك الحركة (Game Loop) لجعل الحركة ناعمة جداً
+        // تفاعلات اللمس
+        touchLayer.addEventListener('touchstart', (e) => {
+            isMoving = true;
+            updateTarget(e.touches[0]);
+        });
+
+        touchLayer.addEventListener('touchmove', (e) => {
+            updateTarget(e.touches[0]);
+        });
+
+        touchLayer.addEventListener('touchend', () => { isMoving = false; });
+
+        // تفاعلات الماوس
+        touchLayer.addEventListener('mousedown', (e) => { isMoving = true; updateTarget(e); });
+        window.addEventListener('mousemove', (e) => { if(isMoving) updateTarget(e); });
+        window.addEventListener('mouseup', () => { isMoving = false; });
+
         function gameLoop() {
             if (isMoving) {
                 character.classList.remove('breathing');
                 
-                // معادلة Lerp (التتبع الناعم)
-                // 0.15 هي سرعة الاستجابة (زودها لو عايزه يلزق في الصباع أكتر)
-                currentX += (targetX - currentX) * 0.15;
-                currentY += (targetY - currentY) * 0.15;
+                // سرعة التتبع (0.1 يعني نعومة عالية)
+                currentX += (targetX - currentX) * 0.1;
+                currentY += (targetY - currentY) * 0.1;
 
                 character.style.left = currentX + 'px';
                 character.style.top = currentY + 'px';
 
-                // تغيير اتجاه وجه الشبل حسب الحركة
                 const diffX = targetX - currentX;
-                if(diffX > 2) character.style.transform = "scaleX(-1)"; // لليمين
-                else if(diffX < -2) character.style.transform = "scaleX(1)"; // لليسار
+                if(diffX > 2) character.style.transform = "scaleX(-1)"; 
+                else if(diffX < -2) character.style.transform = "scaleX(1)"; 
             } else {
                 character.classList.add('breathing');
             }
-
             requestAnimationFrame(gameLoop);
         }
 
-        // ابدأ المحرك
         gameLoop();
 
-        // وظائف إضافية بسيطة
-        document.getElementById('owl').onclick = () => alert("أهلاً بك في الغابة! اسحب الشبل لاستكشاف المكان.");
+        document.getElementById('owl').onclick = () => alert("أهلاً بك! اسحب في أي مكان لتحريك الشبل.");
     </script>
 </body>
 </html>
