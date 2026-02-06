@@ -1,108 +1,147 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>🦁 أسطورة ملك الغابة</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>مغامرة الشبل</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
-        body { overflow: hidden; background: #2d5a27; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { margin: 0; overflow: hidden; background: #2d5a27; touch-action: none; }
+        #world { position: relative; width: 100vw; height: 100vh; }
+        
+        /* الشبل */
+        #character { 
+            position: absolute; font-size: 60px; 
+            left: 50%; top: 50%; 
+            transform: translate(-50%, -50%);
+            z-index: 100; pointer-events: none; /* عشان ميعلقش تحت الصباع */
+        }
 
-        #gameContainer { position: relative; width: 100vw; height: 100vh; background: #3d7038; }
+        .item { position: absolute; font-size: 40px; z-index: 50; }
+        #lake { position: absolute; bottom: 0; left: 0; width: 150px; height: 150px; background: rgba(0,0,255,0.3); border-radius: 0 100% 0 0; border: 2px solid white; color: white; display: flex; align-items: center; justify-content: center; }
         
-        /* البحيرة والمنصة */
-        #lake { position: absolute; bottom: 20px; left: 20px; width: 220px; height: 160px; background: #4fa1ff; border-radius: 50%; border: 4px solid #fff; z-index: 10; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; }
-        #platform { position: absolute; top: -30px; background: #8b4513; padding: 5px; border-radius: 5px; width: 120px; text-align: center; }
-
-        /* الكائنات */
-        .entity { position: absolute; transition: transform 0.2s linear; display: flex; align-items: center; justify-content: center; z-index: 50; pointer-events: none; }
-        #character { font-size: 60px; z-index: 100; transition: left 0.1s ease-out, top 0.1s ease-out; }
-        #hunter { font-size: 50px; display: none; z-index: 110; }
-        
-        /* واجهة المستخدم */
-        #hud { position: fixed; top: 10px; width: 100%; display: flex; justify-content: space-around; z-index: 2000; }
-        .status { background: rgba(0,0,0,0.8); color: #ffd700; padding: 10px; border-radius: 15px; border: 1px solid #ffd700; min-width: 80px; text-align: center; }
-        
-        #owl { position: fixed; bottom: 20px; right: 20px; font-size: 4em; z-index: 1000; cursor: pointer; transition: 1s; }
-        .digging { filter: brightness(0.4) scale(0.7); }
+        #hud { position: fixed; top: 10px; width: 100%; display: flex; justify-content: space-around; color: gold; font-weight: bold; z-index: 1000; text-shadow: 1px 1px black; }
+        #owl { position: fixed; bottom: 20px; right: 20px; font-size: 50px; z-index: 1001; cursor: pointer; }
+        .digging { opacity: 0.5; transform: scale(0.7) !important; }
     </style>
 </head>
 <body>
 
 <div id="hud">
-    <div class="status">💰 <span id="coins">0</span></div>
-    <div class="status">🧬 <span id="stage">شبل</span></div>
-    <div class="status" id="hStatus">🏹 نائم</div>
+    <div>💰: <span id="coins">0</span></div>
+    <div>🧬: <span id="level">شبل</span></div>
+    <div id="hMsg">🏹: نائم</div>
 </div>
 
-<div id="gameContainer">
-    <div id="lake"><div id="platform">منصة المغامرات</div>🛡️ منطقة آمنة</div>
-    <div id="character" class="entity">🦁</div>
-    <div id="hunter" class="entity">🕵️‍♂️</div>
+<div id="world">
+    <div id="lake">البحيرة</div>
+    <div id="character">🦁</div>
+    <div id="hunter" class="item" style="display:none;">🕵️‍♂️</div>
+    <div id="prey" class="item">🐇</div>
+    <div id="chameleon" class="item">🦎</div>
 </div>
 
 <div id="owl">🦉</div>
 
 <script>
     const char = document.getElementById('character');
+    const coinsTxt = document.getElementById('coins');
+    const levelTxt = document.getElementById('level');
     const hunter = document.getElementById('hunter');
     const owl = document.getElementById('owl');
-    const container = document.getElementById('gameContainer');
     
     let coins = 0;
-    let evolution = 0; // 0:شبل, 1:شاب, 2:أسد
-    let isDigging = false;
-    let hunterActive = false;
     let speed = 1;
+    let isDigging = false;
 
-    // --- نظام الحركة المطور (يعمل على كروم والموبايل) ---
-    function moveHandler(e) {
+    // --- الحركة (أهم جزء) ---
+    // بنخلي اللمس على الشاشة كلها (body) عشان الشبل يلحق صباعك
+    document.body.addEventListener('touchmove', (e) => {
         if (isDigging) return;
-        let x, y;
-        if (e.touches) {
-            x = e.touches[0].clientX;
-            y = e.touches[0].clientY;
-        } else {
-            x = e.clientX;
-            y = e.clientY;
-        }
-        char.style.left = (x - 40) + 'px';
-        char.style.top = (y - 40) + 'px';
-        checkGameLogic(x, y);
-    }
+        e.preventDefault(); // بيمنع المتصفح إنه يعمل سكرول أو يبوظ الحركة
+        let t = e.touches[0];
+        char.style.left = t.clientX + 'px';
+        char.style.top = t.clientY + 'px';
+        checkCollisions();
+    }, { passive: false });
 
-    container.addEventListener('touchmove', moveHandler, {passive: false});
-    container.addEventListener('mousemove', (e) => { if(e.buttons === 1) moveHandler(e); });
+    // --- نظام الصيد والتطور ---
+    function checkCollisions() {
+        let charRect = char.getBoundingClientRect();
+        let prey = document.getElementById('prey');
+        let cham = document.getElementById('chameleon');
 
-    // --- توليد العناصر ---
-    function createItem(emoji, cls) {
-        const el = document.createElement('div');
-        el.className = 'entity ' + cls;
-        el.innerHTML = emoji;
-        resetPos(el);
-        container.appendChild(el);
-        return el;
-    }
-
-    function resetPos(el) {
-        el.style.left = Math.random() * (window.innerWidth - 60) + 'px';
-        el.style.top = Math.random() * (window.innerHeight - 60) + 'px';
-    }
-
-    let prey = createItem('🐇', 'prey');
-    let chameleon = createItem('🦎', 'chameleon');
-    let chest = createItem('📦', 'chest');
-
-    // --- منطق اللعبة ---
-    function checkGameLogic(x, y) {
-        const charRect = char.getBoundingClientRect();
-        
-        // 1. الصيد حسب العمر
-        if (isColliding(charRect, prey.getBoundingClientRect())) {
-            coins += (evolution + 1) * 5;
-            resetPos(prey);
-            updateHUD();
-            checkEvolution();
+        // صيد الفريسة
+        if (isHit(charRect, prey.getBoundingClientRect())) {
+            coins += 10;
+            spawn(prey);
+            updateGame();
         }
 
-        // 2. الحرباء (مش
+        // صيد الحرباء (تبطئ الحركة)
+        if (isHit(charRect, cham.getBoundingClientRect())) {
+            speed = 0.2;
+            char.style.filter = "grayscale(1)";
+            setTimeout(() => { speed = 1; char.style.filter = "none"; }, 5000);
+            spawn(cham);
+        }
+    }
+
+    function isHit(r1, r2) {
+        return !(r1.right < r2.left || r1.left > r2.right || r1.bottom < r2.top || r1.top > r2.bottom);
+    }
+
+    function spawn(el) {
+        el.style.left = Math.random() * 80 + 'vw';
+        el.style.top = Math.random() * 80 + 'vh';
+    }
+
+    function updateGame() {
+        coinsTxt.innerText = coins;
+        if (coins > 50 && coins < 100) { levelTxt.innerText = "شاب"; char.innerText = "🐆"; }
+        if (coins >= 100) { levelTxt.innerText = "أسد ملك"; char.innerText = "🦁"; char.style.fontSize = "80px"; }
+    }
+
+    // --- البومة (الحفر 15 ثانية) ---
+    owl.onclick = () => {
+        if (isDigging) return;
+        isDigging = true;
+        char.classList.add('digging');
+        owl.style.opacity = "0.2";
+        setTimeout(() => {
+            isDigging = false;
+            char.classList.remove('digging');
+            owl.style.opacity = "1";
+            coins += 30;
+            updateGame();
+        }, 15000);
+    };
+
+    // --- الصياد الدوري ---
+    setInterval(() => {
+        let active = Math.random() > 0.5;
+        hunter.style.display = active ? 'block' : 'none';
+        document.getElementById('hMsg').innerText = active ? "🏹: اهرب!" : "🏹: نائم";
+        if(active) spawn(hunter);
+    }, 10000);
+
+    // تحريك الصياد خلفك ببطء
+    setInterval(() => {
+        if (hunter.style.display === 'block' && !isDigging) {
+            let hX = hunter.offsetLeft, hY = hunter.offsetTop;
+            let cX = char.offsetLeft, cY = char.offsetTop;
+            hunter.style.left = hX + (cX - hX) * 0.05 + 'px';
+            hunter.style.top = hY + (cY - hY) * 0.05 + 'px';
+            
+            if(isHit(char.getBoundingClientRect(), hunter.getBoundingClientRect())) {
+                coins = Math.max(0, coins - 1);
+                coinsTxt.innerText = coins;
+            }
+        }
+    }, 50);
+
+    spawn(document.getElementById('prey'));
+    spawn(document.getElementById('chameleon'));
+</script>
+
+</body>
+</html>
