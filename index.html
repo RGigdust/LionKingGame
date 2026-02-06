@@ -1,620 +1,430 @@
-import { Telegraf, Markup } from 'telegraf';
-import dotenv from 'dotenv';
-import fs from 'fs';
-
-dotenv.config();
-
-// ============================================
-// 🗄️ نظام قاعدة البيانات البسيط (JSON)
-// ============================================
-class SimpleDB {
-  constructor(filename = 'data.json') {
-    this.filename = filename;
-    this.data = this.load();
-  }
-
-  load() {
-    try {
-      if (fs.existsSync(this.filename)) {
-        const raw = fs.readFileSync(this.filename, 'utf8');
-        return JSON.parse(raw);
-      }
-    } catch (error) {
-      console.error('Error loading database:', error);
-    }
-    return { players: {}, posts: [], sessions: [] };
-  }
-
-  save() {
-    try {
-      fs.writeFileSync(this.filename, JSON.stringify(this.data, null, 2));
-    } catch (error) {
-      console.error('Error saving database:', error);
-    }
-  }
-
-  getPlayer(telegramId) {
-    return this.data.players[telegramId];
-  }
-
-  createPlayer(telegramId, username) {
-    this.data.players[telegramId] = {
-      telegramId,
-      username,
-      characterType: 'cub',
-      zaarBalance: 0,
-      energy: 1000,
-      lastEnergyUpdate: Date.now(),
-      totalMined: 0,
-      miningStreak: 0,
-      lastMiningTime: null,
-      evolutionProgress: 0,
-      hasEvolved: false,
-      postsCount: 0,
-      likesReceived: 0,
-      createdAt: Date.now(),
-    };
-    this.save();
-    return this.data.players[telegramId];
-  }
-
-  updatePlayer(telegramId, updates) {
-    if (this.data.players[telegramId]) {
-      this.data.players[telegramId] = {
-        ...this.data.players[telegramId],
-        ...updates,
-      };
-      this.save();
-    }
-  }
-
-  addMiningSession(telegramId, session) {
-    this.data.sessions.push({
-      telegramId,
-      ...session,
-      timestamp: Date.now(),
-    });
-    this.save();
-  }
-
-  getRecentMining(telegramId, hoursAgo = 1) {
-    const timeLimit = Date.now() - hoursAgo * 60 * 60 * 1000;
-    return this.data.sessions.filter(
-      (s) => s.telegramId === telegramId && s.timestamp > timeLimit
-    );
-  }
-
-  addPost(post) {
-    this.data.posts.push({
-      id: Date.now().toString(),
-      ...post,
-      likesCount: 0,
-      createdAt: Date.now(),
-    });
-    this.save();
-  }
-
-  getPosts(limit = 10) {
-    return this.data.posts
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, limit);
-  }
-}
-
-// ============================================
-// ⚙️ الإعدادات
-// ============================================
-const CONFIG = {
-  MINING_DURATION: 15, // ثانية
-  ENERGY_PER_MINE: 10,
-  ENERGY_MAX: 1000,
-  ENERGY_REGEN_PER_HOUR: 100,
-  ZAAR_TO_EVOLVE: 1000,
-  BASE_REWARD: 10,
-  MAX_ZAAR_PER_HOUR: 5000,
-};
-
-// ============================================
-// 🎮 نظام اللعبة
-// ============================================
-class GameEngine {
-  constructor(db) {
-    this.db = db;
-    this.activeMining = new Map(); // للتتبع من يحفر الآن
-  }
-
-  // حساب الطاقة الحالية
-  calculateEnergy(player) {
-    const timePassed = Date.now() - player.lastEnergyUpdate;
-    const hoursPass = timePassed / (1000 * 60 * 60);
-    const regenEnergy = Math.floor(hoursPass * CONFIG.ENERGY_REGEN_PER_HOUR);
-    const currentEnergy = Math.min(
-      CONFIG.ENERGY_MAX,
-      player.energy + regenEnergy
-    );
-    return currentEnergy;
-  }
-
-  // التحقق من هجوم الضباع
-  checkHyenaAttack(telegramId) {
-    const recentSessions = this.db.getRecentMining(telegramId, 1);
-    const totalMined = recentSessions.reduce((sum, s) => sum + s.zaarMined, 0);
-    return totalMined > CONFIG.MAX_ZAAR_PER_HOUR;
-  }
-
-  // بدء التعدين
-  async startMining(telegramId) {
-    const player = this.db.getPlayer(telegramId);
-    if (!player) {
-      return { success: false, error: 'PLAYER_NOT_FOUND' };
-    }
-
-    // التحقق من وجود جلسة نشطة
-    if (this.activeMining.has(telegramId)) {
-      return { success: false, error: 'ALREADY_MINING' };
-    }
-
-    // حساب الطاقة
-    const currentEnergy = this.calculateEnergy(player);
-    if (currentEnergy < CONFIG.ENERGY_PER_MINE) {
-      return {
-        success: false,
-        error: 'NOT_ENOUGH_ENERGY',
-        currentEnergy,
-      };
-    }
-
-    // تسجيل بدء التعدين
-    this.activeMining.set(telegramId, {
-      startTime: Date.now(),
-      energyBefore: currentEnergy,
-    });
-
-    // انتظار مدة التعدين (15 ثانية)
-    await new Promise((resolve) =>
-      setTimeout(resolve, CONFIG.MINING_DURATION * 1000)
-    );
-
-    // حساب المكافأة
-    const baseReward = CONFIG.BASE_REWARD;
-    const multiplier = player.hasEvolved ? 2 : 1;
-    let zaarMined = Math.floor(baseReward * multiplier);
-
-    // التحقق من هجوم الضباع
-    const hyenaAttack = this.checkHyenaAttack(telegramId);
-    if (hyenaAttack) {
-      zaarMined = Math.floor(zaarMined * 0.5);
-    }
-
-    // تحديث بيانات اللاعب
-    const newEnergy = currentEnergy - CONFIG.ENERGY_PER_MINE;
-    const newProgress = player.evolutionProgress + 1;
-
-    this.db.updatePlayer(telegramId, {
-      zaarBalance: player.zaarBalance + zaarMined,
-      energy: newEnergy,
-      lastEnergyUpdate: Date.now(),
-      totalMined: player.totalMined + zaarMined,
-      lastMiningTime: Date.now(),
-      miningStreak: player.miningStreak + 1,
-      evolutionProgress: newProgress,
-    });
-
-    // حفظ جلسة التعدين
-    this.db.addMiningSession(telegramId, {
-      zaarMined,
-      energyUsed: CONFIG.ENERGY_PER_MINE,
-      hyenaAttack,
-    });
-
-    // إزالة من القائمة النشطة
-    this.activeMining.delete(telegramId);
-
-    return {
-      success: true,
-      zaarMined,
-      energyRemaining: newEnergy,
-      hyenaAttack,
-      evolutionProgress: newProgress,
-      canEvolve: newProgress >= CONFIG.ZAAR_TO_EVOLVE && !player.hasEvolved,
-    };
-  }
-
-  // تطور الشبل إلى أسد
-  evolve(telegramId) {
-    const player = this.db.getPlayer(telegramId);
-    if (!player) {
-      return { success: false, error: 'PLAYER_NOT_FOUND' };
-    }
-
-    if (player.hasEvolved) {
-      return { success: false, error: 'ALREADY_EVOLVED' };
-    }
-
-    if (player.evolutionProgress < CONFIG.ZAAR_TO_EVOLVE) {
-      return { success: false, error: 'NOT_ENOUGH_PROGRESS' };
-    }
-
-    // تنفيذ التطور
-    const evolutionBonus = 100;
-    this.db.updatePlayer(telegramId, {
-      characterType: 'lion',
-      hasEvolved: true,
-      energy: CONFIG.ENERGY_MAX, // إعادة ملء الطاقة
-      zaarBalance: player.zaarBalance + evolutionBonus,
-    });
-
-    return {
-      success: true,
-      bonus: evolutionBonus,
-    };
-  }
-
-  // إنشاء منشور
-  createPost(telegramId, content) {
-    const player = this.db.getPlayer(telegramId);
-    if (!player) {
-      return { success: false, error: 'PLAYER_NOT_FOUND' };
-    }
-
-    this.db.addPost({
-      telegramId,
-      username: player.username || 'مجهول',
-      characterType: player.characterType,
-      content,
-    });
-
-    // مكافأة النشر
-    this.db.updatePlayer(telegramId, {
-      postsCount: player.postsCount + 1,
-      zaarBalance: player.zaarBalance + 5,
-    });
-
-    return { success: true, reward: 5 };
-  }
-}
-
-// ============================================
-// 🤖 البوت
-// ============================================
-const bot = new Telegraf(process.env.BOT_TOKEN);
-const db = new SimpleDB();
-const game = new GameEngine(db);
-
-// الأمر: /start - الافتتاحية المهيبة
-bot.command('start', async (ctx) => {
-  const telegramId = ctx.from.id.toString();
-  let player = db.getPlayer(telegramId);
-
-  if (!player) {
-    player = db.createPlayer(telegramId, ctx.from.username);
-  }
-
-  const welcomeText = `
-🦁 *مرحباً في عالم LAST* 🦁
-
-في غابة مظلمة... شبل وحيد يرتجف من البرد ❄️
-لكن قدره أن يصبح ملك الغابة! 👑
-
-🎯 *رحلتك:*
-• احفر لتجمع عملات ZAAR 💎
-• اجمع 1000 ZAAR لتتطور إلى أسد 🦁
-• شارك في البحيرة الاجتماعية 🌊
-• واصل حتى تصبح الملك! 👑
-
-⚡ الطاقة: ${player.energy}/${CONFIG.ENERGY_MAX}
-💎 ZAAR: ${player.zaarBalance}
-
-🎮 *الأوامر المتاحة:*
-/mine - ابدأ الحفر ⛏️
-/stats - إحصائياتك 📊
-/evolve - تطور إلى أسد (عند 1000 ZAAR)
-/lake - البحيرة الاجتماعية 🌊
-/help - المساعدة ❓
-`;
-
-  await ctx.replyWithMarkdown(welcomeText, {
-    reply_markup: {
-      keyboard: [
-        ['⛏️ احفر الآن', '📊 إحصائياتي'],
-        ['🦁 تطور', '🌊 البحيرة'],
-        ['❓ مساعدة'],
-      ],
-      resize_keyboard: true,
-    },
-  });
-});
-
-// الأمر: /mine - بدء التعدين
-bot.command('mine', async (ctx) => {
-  const telegramId = ctx.from.id.toString();
-  const player = db.getPlayer(telegramId);
-
-  if (!player) {
-    return ctx.reply('استخدم /start أولاً! ✨');
-  }
-
-  const currentEnergy = game.calculateEnergy(player);
-
-  if (currentEnergy < CONFIG.ENERGY_PER_MINE) {
-    return ctx.reply(
-      `⚠️ طاقتك غير كافية!\n\n` +
-        `⚡ الطاقة الحالية: ${currentEnergy}/${CONFIG.ENERGY_MAX}\n` +
-        `📈 تتجدد الطاقة بمعدل ${CONFIG.ENERGY_REGEN_PER_HOUR} في الساعة\n\n` +
-        `⏰ عد لاحقاً!`
-    );
-  }
-
-  const statusMsg = await ctx.reply(
-    `⛏️ *بدأ الحفر...*\n\n` +
-      `${player.characterType === 'cub' ? '🐾' : '🦁'} الشبل يحفر بقوة!\n` +
-      `⏳ الوقت المتبقي: ${CONFIG.MINING_DURATION} ثانية...\n\n` +
-      `💪 استمر!`,
-    { parse_mode: 'Markdown' }
-  );
-
-  // عد تنازلي
-  for (let i = CONFIG.MINING_DURATION; i > 0; i -= 5) {
-    await new Promise((resolve) => setTimeout(resolve, 5000));
-    try {
-      await ctx.telegram.editMessageText(
-        ctx.chat.id,
-        statusMsg.message_id,
-        null,
-        `⛏️ *جاري الحفر...*\n\n` +
-          `${player.characterType === 'cub' ? '🐾' : '🦁'} الشبل يحفر بقوة!\n` +
-          `⏳ الوقت المتبقي: ${i - 5} ثانية...\n\n` +
-          `💪 استمر!`,
-        { parse_mode: 'Markdown' }
-      );
-    } catch (e) {
-      // تجاهل أخطاء التحرير
-    }
-  }
-
-  // بدء التعدين
-  const result = await game.startMining(telegramId);
-
-  if (result.success) {
-    let resultText = `
-✨ *نجح الحفر!* ✨
-
-💎 حصلت على: *${result.zaarMined} ZAAR*
-${result.hyenaAttack ? '⚠️ هجوم الضباع! تم تقليل المكافأة بنسبة 50%' : ''}
-
-📊 *معلوماتك الآن:*
-💎 إجمالي ZAAR: ${db.getPlayer(telegramId).zaarBalance}
-⚡ الطاقة المتبقية: ${result.energyRemaining}/${CONFIG.ENERGY_MAX}
-📈 تقدم التطور: ${result.evolutionProgress}/${CONFIG.ZAAR_TO_EVOLVE}
-`;
-
-    if (result.canEvolve) {
-      resultText += `\n🎉 *يمكنك التطور الآن!*\nاستخدم /evolve للتطور إلى أسد! 🦁`;
-    }
-
-    await ctx.telegram.editMessageText(
-      ctx.chat.id,
-      statusMsg.message_id,
-      null,
-      resultText,
-      { parse_mode: 'Markdown' }
-    );
-  } else {
-    await ctx.reply(`❌ حدث خطأ: ${result.error}`);
-  }
-});
-
-// زر الحفر
-bot.hears('⛏️ احفر الآن', (ctx) => ctx.telegram.sendMessage(ctx.chat.id, 'استخدم /mine للحفر!'));
-
-// الأمر: /stats - الإحصائيات
-bot.command('stats', async (ctx) => {
-  const telegramId = ctx.from.id.toString();
-  const player = db.getPlayer(telegramId);
-
-  if (!player) {
-    return ctx.reply('استخدم /start أولاً! ✨');
-  }
-
-  const currentEnergy = game.calculateEnergy(player);
-  const progressPercent = (
-    (player.evolutionProgress / CONFIG.ZAAR_TO_EVOLVE) *
-    100
-  ).toFixed(1);
-
-  const statsText = `
-📊 *إحصائيات ${player.username || 'اللاعب'}* 📊
-
-🦁 *الحالة:*
-• الشخصية: ${player.characterType === 'cub' ? 'شبل 🐾' : 'أسد 🦁'}
-• الحالة: ${player.hasEvolved ? 'متطور ✨' : 'في الطريق للتطور 🌱'}
-
-💎 *المكاسب:*
-• رصيد ZAAR: ${player.zaarBalance}
-• إجمالي ما تم حفره: ${player.totalMined}
-• عدد مرات الحفر: ${player.miningStreak}
-
-⚡ *الطاقة:*
-• الحالية: ${currentEnergy}/${CONFIG.ENERGY_MAX}
-• نسبة التجديد: ${CONFIG.ENERGY_REGEN_PER_HOUR}/ساعة
-
-📈 *التطور:*
-• التقدم: ${player.evolutionProgress}/${CONFIG.ZAAR_TO_EVOLVE}
-• النسبة: ${progressPercent}%
-${
-  player.evolutionProgress >= CONFIG.ZAAR_TO_EVOLVE && !player.hasEvolved
-    ? '\n🎉 جاهز للتطور! استخدم /evolve'
-    : ''
-}
-
-🌊 *الاجتماعي:*
-• المنشورات: ${player.postsCount}
-• الإعجابات: ${player.likesReceived}
-
-⏰ انضممت منذ: ${new Date(player.createdAt).toLocaleDateString('ar')}
-`;
-
-  await ctx.replyWithMarkdown(statsText);
-});
-
-// زر الإحصائيات
-bot.hears('📊 إحصائياتي', (ctx) => ctx.telegram.sendMessage(ctx.chat.id, 'جاري جلب إحصائياتك...') && ctx.telegram.sendMessage(ctx.chat.id, '/stats'));
-
-// الأمر: /evolve - التطور
-bot.command('evolve', async (ctx) => {
-  const telegramId = ctx.from.id.toString();
-  const result = game.evolve(telegramId);
-
-  if (result.success) {
-    await ctx.replyWithMarkdown(`
-🎊 *تهانينا! تطورت إلى أسد!* 🦁
-
-✨ البوابة تحطمت!
-🎁 حصلت على ${result.bonus} ZAAR كمكافأة تطور!
-
-💪 *قوتك الآن مضاعفة!*
-• كل حفرة تعطيك ضعف ZAAR
-• طاقتك أُعيدت للحد الأقصى
-
-👑 أنت الآن ملك الغابة!
-`);
-  } else {
-    if (result.error === 'ALREADY_EVOLVED') {
-      await ctx.reply('🦁 أنت بالفعل أسد!');
-    } else if (result.error === 'NOT_ENOUGH_PROGRESS') {
-      const player = db.getPlayer(telegramId);
-      await ctx.reply(
-        `⚠️ تحتاج المزيد من ZAAR!\n\n` +
-          `📈 التقدم الحالي: ${player.evolutionProgress}/${CONFIG.ZAAR_TO_EVOLVE}\n` +
-          `💎 تحتاج: ${CONFIG.ZAAR_TO_EVOLVE - player.evolutionProgress} ZAAR أخرى`
-      );
-    }
-  }
-});
-
-// زر التطور
-bot.hears('🦁 تطور', (ctx) => ctx.telegram.sendMessage(ctx.chat.id, 'جاري التحقق من إمكانية التطور...') && ctx.telegram.sendMessage(ctx.chat.id, '/evolve'));
-
-// الأمر: /lake - البحيرة الاجتماعية
-bot.command('lake', async (ctx) => {
-  const posts = db.getPosts(5);
-
-  if (posts.length === 0) {
-    return ctx.reply(
-      '🌊 *البحيرة فارغة!*\n\n' +
-        'كن أول من ينشر!\n' +
-        'استخدم: /post رسالتك',
-      { parse_mode: 'Markdown' }
-    );
-  }
-
-  let lakeText = '🌊 *البحيرة الاجتماعية* 🌊\n\n';
-
-  posts.forEach((post, index) => {
-    const icon = post.characterType === 'lion' ? '🦁' : '🐾';
-    lakeText += `${icon} *${post.username}*\n`;
-    lakeText += `💬 ${post.content}\n`;
-    lakeText += `❤️ ${post.likesCount} • ${new Date(post.createdAt).toLocaleString('ar')}\n\n`;
-  });
-
-  lakeText += '\n📝 لنشر رسالتك: /post رسالتك هنا';
-
-  await ctx.replyWithMarkdown(lakeText);
-});
-
-// زر البحيرة
-bot.hears('🌊 البحيرة', (ctx) => ctx.telegram.sendMessage(ctx.chat.id, '/lake'));
-
-// الأمر: /post - نشر في البحيرة
-bot.command('post', async (ctx) => {
-  const telegramId = ctx.from.id.toString();
-  const content = ctx.message.text.replace('/post', '').trim();
-
-  if (!content) {
-    return ctx.reply('استخدم: /post رسالتك هنا\n\nمثال: /post أول يوم لي في اللعبة! 🎮');
-  }
-
-  const result = game.createPost(telegramId, content);
-
-  if (result.success) {
-    await ctx.reply(
-      `✅ *تم نشر رسالتك في البحيرة!*\n\n` +
-        `🎁 حصلت على ${result.reward} ZAAR كمكافأة!\n\n` +
-        `شاهد المنشورات: /lake`,
-      { parse_mode: 'Markdown' }
-    );
-  }
-});
-
-// الأمر: /help - المساعدة
-bot.command('help', async (ctx) => {
-  const helpText = `
-❓ *دليل المساعدة* ❓
-
-🎮 *الأوامر الأساسية:*
-• /start - البداية
-• /mine - الحفر (15 ثانية)
-• /stats - إحصائياتك
-• /evolve - التطور (عند 1000 ZAAR)
-
-🌊 *الأوامر الاجتماعية:*
-• /lake - عرض المنشورات
-• /post رسالة - نشر في البحيرة
-
-📖 *كيف تلعب:*
-1️⃣ احفر باستخدام /mine
-2️⃣ اجمع 1000 ZAAR
-3️⃣ تطور إلى أسد بـ /evolve
-4️⃣ شارك في البحيرة بـ /post
-
-💡 *نصائح:*
-• الأسد يحفر ضعف الشبل
-• الطاقة تتجدد تلقائياً
-• النشر يعطيك ZAAR إضافية
-• هجوم الضباع يقلل المكافأة إذا حفرت كثيراً
-
-🦉 *البومة تقول:*
-"الصبر مفتاح النجاح! 🌟"
-`;
-
-  await ctx.replyWithMarkdown(helpText);
-});
-
-// زر المساعدة
-bot.hears('❓ مساعدة', (ctx) => ctx.telegram.sendMessage(ctx.chat.id, '/help'));
-
-// معالجة الأخطاء
-bot.catch((err, ctx) => {
-  console.error('Bot error:', err);
-  ctx.reply('❌ حدث خطأ! حاول مرة أخرى.');
-});
-
-// ============================================
-// 🚀 تشغيل البوت
-// ============================================
-console.log('🦁 Starting LAST Token Bot...');
-
-bot.launch()
-  .then(() => {
-    console.log('✅ Bot is running!');
-    console.log('📊 Database loaded');
-    console.log('🎮 Game engine ready');
-    console.log('\n🔗 Open Telegram and chat with your bot!');
-  })
-  .catch((error) => {
-    console.error('❌ Failed to start bot:', error);
-  });
-
-// إيقاف آمن
-process.once('SIGINT', () => {
-  console.log('\n🛑 Stopping bot...');
-  bot.stop('SIGINT');
-  db.save();
-  console.log('✅ Database saved');
-  console.log('👋 Goodbye!');
-});
-
-process.once('SIGTERM', () => {
-  bot.stop('SIGTERM');
-  db.save();
-});
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🦁 LAST Token - لعبة ملك الأسود</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 30px 20px;
+            background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+            border-radius: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-card .icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .value {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .game-area {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            text-align: center;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .character {
+            font-size: 8em;
+            margin: 20px 0;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .mining {
+            animation: shake 0.5s ease-in-out infinite;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-10deg); }
+            75% { transform: rotate(10deg); }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f39c12 0%, #e74c3c 100%);
+            transition: width 0.5s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #f39c12 0%, #e74c3c 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(243,156,18,0.4);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(243,156,18,0.6);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(52,152,219,0.4);
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.9);
+            padding: 20px 30px;
+            border-radius: 10px;
+            border-left: 4px solid #f39c12;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+            transform: translateX(400px);
+            transition: transform 0.3s;
+            z-index: 1000;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .timer {
+            font-size: 2em;
+            color: #f39c12;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .character {
+                font-size: 6em;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🦁 LAST TOKEN</h1>
+            <p>رحلة الشبل نحو العرش</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="icon">💎</div>
+                <div class="label">رصيد ZAAR</div>
+                <div class="value" id="zaar">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">⚡</div>
+                <div class="label">الطاقة</div>
+                <div class="value" id="energy">1000/1000</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">📈</div>
+                <div class="label">التقدم للتطور</div>
+                <div class="value" id="progress">0/1000</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">⛏️</div>
+                <div class="label">إجمالي الحفر</div>
+                <div class="value" id="totalMined">0</div>
+            </div>
+        </div>
+
+        <div class="game-area">
+            <div class="character" id="character">🐾</div>
+            <p id="status">اضغط على "احفر" لبدء التعدين!</p>
+            <div class="timer" id="timer" style="display: none;">00:15</div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="evolutionProgress" style="width: 0%">0%</div>
+            </div>
+
+            <div>
+                <button class="btn btn-primary" id="mineBtn" onclick="startMining()">
+                    ⛏️ احفر الآن
+                </button>
+                <button class="btn btn-secondary" id="evolveBtn" onclick="evolve()" style="display: none;">
+                    🦁 تطور إلى أسد
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification">
+        <p id="notificationText"></p>
+    </div>
+
+    <script>
+        // إعدادات اللعبة
+        const CONFIG = {
+            MINING_DURATION: 15,
+            ENERGY_PER_MINE: 10,
+            ENERGY_MAX: 1000,
+            BASE_REWARD: 10,
+            ZAAR_TO_EVOLVE: 1000,
+        };
+
+        // حالة اللاعب
+        let player = {
+            characterType: 'cub',
+            zaarBalance: 0,
+            energy: 1000,
+            totalMined: 0,
+            evolutionProgress: 0,
+            hasEvolved: false,
+        };
+
+        // تحميل البيانات من localStorage
+        function loadPlayer() {
+            const saved = localStorage.getItem('lastGamePlayer');
+            if (saved) {
+                player = JSON.parse(saved);
+                updateUI();
+            }
+        }
+
+        // حفظ البيانات
+        function savePlayer() {
+            localStorage.setItem('lastGamePlayer', JSON.stringify(player));
+        }
+
+        // تحديث الواجهة
+        function updateUI() {
+            document.getElementById('zaar').textContent = player.zaarBalance;
+            document.getElementById('energy').textContent = `${player.energy}/${CONFIG.ENERGY_MAX}`;
+            document.getElementById('progress').textContent = `${player.evolutionProgress}/${CONFIG.ZAAR_TO_EVOLVE}`;
+            document.getElementById('totalMined').textContent = player.totalMined;
+            
+            const progressPercent = (player.evolutionProgress / CONFIG.ZAAR_TO_EVOLVE) * 100;
+            const progressBar = document.getElementById('evolutionProgress');
+            progressBar.style.width = `${progressPercent}%`;
+            progressBar.textContent = `${progressPercent.toFixed(0)}%`;
+
+            // تغيير الشخصية
+            document.getElementById('character').textContent = player.hasEvolved ? '🦁' : '🐾';
+
+            // إظهار زر التطور
+            if (player.evolutionProgress >= CONFIG.ZAAR_TO_EVOLVE && !player.hasEvolved) {
+                document.getElementById('evolveBtn').style.display = 'inline-block';
+            }
+        }
+
+        // إظهار إشعار
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            document.getElementById('notificationText').innerHTML = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // بدء التعدين
+        async function startMining() {
+            if (player.energy < CONFIG.ENERGY_PER_MINE) {
+                showNotification('⚠️ طاقتك غير كافية!<br>انتظر لتتجدد الطاقة');
+                return;
+            }
+
+            const mineBtn = document.getElementById('mineBtn');
+            const character = document.getElementById('character');
+            const status = document.getElementById('status');
+            const timerEl = document.getElementById('timer');
+
+            // تعطيل الزر
+            mineBtn.disabled = true;
+            character.classList.add('mining');
+            
+            // إظهار العداد
+            timerEl.style.display = 'block';
+            status.textContent = 'جاري الحفر...';
+
+            // العد التنازلي
+            let timeLeft = CONFIG.MINING_DURATION;
+            const countdown = setInterval(() => {
+                timeLeft--;
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                timerEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(countdown);
+                }
+            }, 1000);
+
+            // انتظار المدة
+            await new Promise(resolve => setTimeout(resolve, CONFIG.MINING_DURATION * 1000));
+
+            // حساب المكافأة
+            const multiplier = player.hasEvolved ? 2 : 1;
+            const reward = CONFIG.BASE_REWARD * multiplier;
+
+            // تحديث البيانات
+            player.zaarBalance += reward;
+            player.energy -= CONFIG.ENERGY_PER_MINE;
+            player.totalMined += reward;
+            player.evolutionProgress++;
+
+            // حفظ وتحديث
+            savePlayer();
+            updateUI();
+
+            // إزالة الأنيميشن
+            character.classList.remove('mining');
+            timerEl.style.display = 'none';
+            status.textContent = 'اضغط على "احفر" لبدء التعدين!';
+            mineBtn.disabled = false;
+
+            // إشعار النجاح
+            showNotification(`
+                ✨ نجح الحفر!<br>
+                💎 حصلت على: ${reward} ZAAR
+            `);
+        }
+
+        // التطور
+        function evolve() {
+            if (player.hasEvolved) {
+                showNotification('🦁 أنت بالفعل أسد!');
+                return;
+            }
+
+            if (player.evolutionProgress < CONFIG.ZAAR_TO_EVOLVE) {
+                showNotification('⚠️ تحتاج المزيد من ZAAR للتطور!');
+                return;
+            }
+
+            // تنفيذ التطور
+            player.hasEvolved = true;
+            player.characterType = 'lion';
+            player.energy = CONFIG.ENERGY_MAX;
+            player.zaarBalance += 100; // مكافأة التطور
+
+            savePlayer();
+            updateUI();
+
+            showNotification(`
+                🎊 تهانينا!<br>
+                🦁 تطورت إلى أسد ملك الغابة!<br>
+                🎁 حصلت على 100 ZAAR إضافية
+            `);
+
+            document.getElementById('evolveBtn').style.display = 'none';
+        }
+
+        // تحميل البيانات عند البدء
+        loadPlayer();
+    </script>
+</body>
+</html>
