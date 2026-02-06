@@ -1,101 +1,124 @@
 // ============================================
-// ⚙️ إعدادات اللعبة
+// 🎮 محرك اللعبة الواقعي
 // ============================================
+
+// إعدادات اللعبة
 const CONFIG = {
+    // حجم العالم
+    WORLD_WIDTH: 300, // % من الشاشة
+    WORLD_HEIGHT: 300,
+    
     // مراحل التطور
     STAGES: {
-        CUB: { name: 'شبل صغير', icon: '🐾', zaarRequired: 0, huntMultiplier: 1 },
-        TEEN: { name: 'شبل مراهق', icon: '🦁', zaarRequired: 100, huntMultiplier: 1.5 },
-        YOUNG: { name: 'أسد شاب', icon: '🦁', zaarRequired: 500, huntMultiplier: 2 },
-        KING: { name: 'ملك الغابة', icon: '👑🦁', zaarRequired: 1000, huntMultiplier: 3 }
+        CUB: { name: 'شبل صغير', icon: '🐾', size: 10, speed: 2, huntRange: 80 },
+        TEEN: { name: 'شبل مراهق', icon: '🦁', size: 12, speed: 3, huntRange: 100 },
+        YOUNG: { name: 'أسد شاب', icon: '🦁', size: 14, speed: 4, huntRange: 120 },
+        KING: { name: 'ملك الغابة', icon: '👑', size: 16, speed: 5, huntRange: 150 }
     },
     
     // الفرائس
-    PREY_TYPES: {
-        HAMSTER: { icon: '🐹', zaarReward: 5, lastReward: 0.001, minStage: 'CUB', speed: 3 },
-        RABBIT: { icon: '🐰', zaarReward: 10, lastReward: 0.002, minStage: 'CUB', speed: 4 },
-        DEER: { icon: '🦌', zaarReward: 25, lastReward: 0.005, minStage: 'YOUNG', speed: 5 },
-        BOAR: { icon: '🐗', zaarReward: 50, lastReward: 0.01, minStage: 'KING', speed: 6 }
+    PREY: {
+        HAMSTER: { icon: '🐹', zaar: 5, last: 0.001, speed: 2, size: 4 },
+        RABBIT: { icon: '🐰', zaar: 10, last: 0.002, speed: 3, size: 4 },
+        DEER: { icon: '🦌', zaar: 25, last: 0.005, speed: 4, size: 5 },
+        BOAR: { icon: '🐗', zaar: 50, last: 0.01, speed: 2.5, size: 5 }
     },
     
-    // نظام الطاقة
-    ENERGY_MAX: 100,
-    ENERGY_REGEN_PER_SECOND: 0.5,
-    HUNT_ENERGY_COST: 10,
+    // الحفر
+    DIG_DURATION: 3000, // 3 ثوان
+    DIG_REWARD_MIN: 2,
+    DIG_REWARD_MAX: 8,
     
-    // الصياد (المركزية)
-    HUNTER_SPAWN_CHANCE: 0.3,
-    HUNTER_DURATION: 10000, // 10 ثوان
+    // دورة الليل والنهار
+    DAY_NIGHT_CYCLE: 120000, // 2 دقيقة = يوم كامل
     
-    // معدل ظهور الفرائس
-    PREY_SPAWN_INTERVAL: 3000, // 3 ثوان
-    MAX_PREY_ON_SCREEN: 5,
+    // ظهور الفرائس
+    PREY_SPAWN_INTERVAL: 5000,
+    MAX_PREY: 8,
     
-    // تحويل زار إلى LAST
-    ZAAR_TO_LAST_RATIO: 100, // كل 100 زار = 1 LAST
+    // تحويل العملة
+    ZAAR_TO_LAST: 100,
 };
 
 // ============================================
-// 🎮 حالة اللعبة
+// 🎯 حالة اللعبة
 // ============================================
 class GameState {
     constructor() {
         this.player = {
+            x: 50, // % من عرض العالم
+            y: 50, // % من ارتفاع العالم
             stage: 'CUB',
             zaar: 0,
             last: 0,
-            energy: CONFIG.ENERGY_MAX,
             totalHunts: 0,
-            currentScene: 'forest',
-            inLake: false,
-            canDodge: false, // يستطيع المراوغة عند الشاب والملك
+            totalDigs: 0,
         };
         
-        this.activePrey = [];
-        this.hunterActive = false;
-        this.hunterTimeout = null;
+        this.camera = {
+            x: 0,
+            y: 0,
+        };
         
-        this.posts = [];
-        this.dailyTasks = [];
+        this.world = {
+            isDay: true,
+            timeProgress: 0, // 0-1
+        };
         
-        this.touchStartX = 0;
-        this.touchStartY = 0;
+        this.prey = [];
+        this.digSpots = [];
+        this.trees = [];
         
-        this.autoConvert = true; // تحويل تلقائي للزار إلى LAST
+        this.input = {
+            isDragging: false,
+            startX: 0,
+            startY: 0,
+        };
+        
+        this.modes = {
+            digging: false,
+        };
         
         this.loadFromStorage();
+        this.generateWorld();
     }
     
-    // حفظ البيانات
-    save() {
-        localStorage.setItem('lastGame', JSON.stringify({
-            player: this.player,
-            posts: this.posts,
-        }));
-    }
-    
-    // تحميل البيانات
     loadFromStorage() {
-        const saved = localStorage.getItem('lastGame');
+        const saved = localStorage.getItem('lastGameRealistic');
         if (saved) {
             try {
                 const data = JSON.parse(saved);
                 this.player = { ...this.player, ...data.player };
-                this.posts = data.posts || [];
             } catch (e) {
-                console.error('Failed to load game data:', e);
+                console.error('Failed to load:', e);
             }
         }
-        this.generateDailyTasks();
     }
     
-    // تحديث الطاقة
-    updateEnergy(delta) {
-        if (this.player.energy < CONFIG.ENERGY_MAX) {
-            this.player.energy = Math.min(
-                CONFIG.ENERGY_MAX,
-                this.player.energy + CONFIG.ENERGY_REGEN_PER_SECOND * (delta / 1000)
-            );
+    save() {
+        localStorage.setItem('lastGameRealistic', JSON.stringify({
+            player: this.player,
+        }));
+    }
+    
+    // توليد عالم اللعبة
+    generateWorld() {
+        // توليد الأشجار
+        for (let i = 0; i < 50; i++) {
+            this.trees.push({
+                x: Math.random() * CONFIG.WORLD_WIDTH,
+                y: Math.random() * CONFIG.WORLD_HEIGHT,
+                type: Math.random() > 0.5 ? '🌲' : '🌳',
+            });
+        }
+        
+        // توليد أماكن الحفر
+        for (let i = 0; i < 20; i++) {
+            this.digSpots.push({
+                x: Math.random() * CONFIG.WORLD_WIDTH,
+                y: Math.random() * CONFIG.WORLD_HEIGHT,
+                dug: false,
+            });
         }
     }
     
@@ -103,714 +126,675 @@ class GameState {
     addZaar(amount) {
         this.player.zaar += amount;
         
-        // تحويل تلقائي إلى LAST
-        if (this.autoConvert && this.player.zaar >= CONFIG.ZAAR_TO_LAST_RATIO) {
-            const lastToAdd = Math.floor(this.player.zaar / CONFIG.ZAAR_TO_LAST_RATIO);
+        // تحويل تلقائي
+        if (this.player.zaar >= CONFIG.ZAAR_TO_LAST) {
+            const lastToAdd = Math.floor(this.player.zaar / CONFIG.ZAAR_TO_LAST);
             this.player.last += lastToAdd;
-            this.player.zaar -= lastToAdd * CONFIG.ZAAR_TO_LAST_RATIO;
-            
-            showNotification(`🎉 تحويل تلقائي: +${lastToAdd} LAST`);
+            this.player.zaar -= lastToAdd * CONFIG.ZAAR_TO_LAST;
         }
         
         this.save();
     }
     
-    // التحقق من إمكانية التطور
+    // التحقق من التطور
     canEvolve() {
         const stages = Object.keys(CONFIG.STAGES);
         const currentIndex = stages.indexOf(this.player.stage);
         
-        if (currentIndex >= stages.length - 1) return false; // أقصى مرحلة
+        if (currentIndex >= stages.length - 1) return false;
         
-        const nextStage = stages[currentIndex + 1];
-        const required = CONFIG.STAGES[nextStage].zaarRequired;
-        
-        return this.player.zaar >= required;
-    }
-    
-    // التطور
-    evolve() {
-        if (!this.canEvolve()) return false;
-        
-        const stages = Object.keys(CONFIG.STAGES);
-        const currentIndex = stages.indexOf(this.player.stage);
-        const nextStage = stages[currentIndex + 1];
-        
-        this.player.stage = nextStage;
-        
-        // تفعيل المراوغة للمراحل المتقدمة
-        if (nextStage === 'YOUNG' || nextStage === 'KING') {
-            this.player.canDodge = true;
-        }
-        
-        this.save();
-        return true;
-    }
-    
-    // توليد مهام يومية
-    generateDailyTasks() {
-        this.dailyTasks = [
-            { id: 1, title: 'اصطد 5 فرائس', progress: 0, target: 5, reward: 20, completed: false },
-            { id: 2, title: 'اجمع 50 زار', progress: 0, target: 50, reward: 10, completed: false },
-            { id: 3, title: 'انشر في البحيرة', progress: 0, target: 1, reward: 15, completed: false },
-        ];
-    }
-    
-    // تحديث المهمة
-    updateTask(taskId, progress) {
-        const task = this.dailyTasks.find(t => t.id === taskId);
-        if (task && !task.completed) {
-            task.progress = Math.min(task.progress + progress, task.target);
-            
-            if (task.progress >= task.target) {
-                task.completed = true;
-                this.addZaar(task.reward);
-                showNotification(`✅ أكملت المهمة: ${task.title}\n🎁 +${task.reward} زار`);
-            }
-        }
+        const requirements = [0, 50, 200, 500]; // زار مطلوب لكل مرحلة
+        return this.player.zaar >= requirements[currentIndex + 1];
     }
 }
 
 // ============================================
-// 🎯 نظام الصيد
+// 🎬 محرك الرسومات
 // ============================================
-class HuntingSystem {
+class Renderer {
     constructor(gameState) {
-        this.gameState = gameState;
+        this.state = gameState;
+        
+        this.gameWorld = document.getElementById('gameWorld');
+        this.camera = document.getElementById('camera');
+        this.character = document.getElementById('character');
+        this.skyLayer = document.getElementById('skyLayer');
+        this.celestialBody = document.getElementById('celestialBody');
+        this.stars = document.getElementById('stars');
+        
+        this.treesContainer = document.getElementById('treesBackground');
         this.preyContainer = document.getElementById('preyContainer');
+        this.digSpotsContainer = document.getElementById('digSpotsContainer');
+        
+        this.init();
     }
     
-    // توليد فريسة
-    spawnPrey() {
-        // التحقق من العدد الأقصى
-        if (this.gameState.activePrey.length >= CONFIG.MAX_PREY_ON_SCREEN) {
-            return;
-        }
-        
-        // اختيار نوع الفريسة المناسب للمرحلة
-        const availablePrey = Object.entries(CONFIG.PREY_TYPES).filter(([key, prey]) => {
-            const stageIndex = Object.keys(CONFIG.STAGES).indexOf(this.gameState.player.stage);
-            const minStageIndex = Object.keys(CONFIG.STAGES).indexOf(prey.minStage);
-            return stageIndex >= minStageIndex;
+    init() {
+        // رسم الأشجار
+        this.state.trees.forEach(tree => {
+            const treeEl = document.createElement('div');
+            treeEl.className = 'tree';
+            treeEl.textContent = tree.type;
+            treeEl.style.left = tree.x + '%';
+            treeEl.style.top = tree.y + '%';
+            treeEl.style.animationDelay = Math.random() * 2 + 's';
+            this.treesContainer.appendChild(treeEl);
         });
         
-        if (availablePrey.length === 0) return;
+        // رسم أماكن الحفر
+        this.state.digSpots.forEach((spot, i) => {
+            const spotEl = document.createElement('div');
+            spotEl.className = 'dig-spot';
+            spotEl.dataset.index = i;
+            spotEl.style.left = spot.x + '%';
+            spotEl.style.top = spot.y + '%';
+            this.digSpotsContainer.appendChild(spotEl);
+        });
         
-        const [preyKey, preyData] = availablePrey[Math.floor(Math.random() * availablePrey.length)];
+        // رسم النجوم
+        for (let i = 0; i < 50; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            star.textContent = '✨';
+            star.style.left = Math.random() * 100 + '%';
+            star.style.top = Math.random() * 50 + '%';
+            star.style.animationDelay = Math.random() * 3 + 's';
+            this.stars.appendChild(star);
+        }
+    }
+    
+    // تحديث موضع الشخصية
+    updateCharacterPosition() {
+        this.character.style.left = this.state.player.x + '%';
+        this.character.style.top = this.state.player.y + '%';
         
-        const prey = document.createElement('div');
-        prey.className = 'prey';
-        prey.innerHTML = preyData.icon;
-        prey.dataset.type = preyKey;
+        const stage = CONFIG.STAGES[this.state.player.stage];
+        this.character.style.fontSize = stage.size + 'em';
+    }
+    
+    // تحديث الكاميرا
+    updateCamera() {
+        // الكاميرا تتبع الشخصية
+        const targetX = -(this.state.player.x - 50);
+        const targetY = -(this.state.player.y - 50);
         
-        // موضع عشوائي
-        const x = Math.random() * (window.innerWidth - 100);
-        const y = 100 + Math.random() * (window.innerHeight - 300);
-        prey.style.left = x + 'px';
-        prey.style.top = y + 'px';
+        this.state.camera.x += (targetX - this.state.camera.x) * 0.1;
+        this.state.camera.y += (targetY - this.state.camera.y) * 0.1;
         
-        // حدث النقر للصيد
-        prey.onclick = () => this.catchPrey(prey, preyKey, preyData);
+        this.gameWorld.style.transform = `translate(${this.state.camera.x}%, ${this.state.camera.y}%)`;
+    }
+    
+    // رسم فريسة
+    spawnPrey(prey, index) {
+        const preyEl = document.createElement('div');
+        preyEl.className = 'prey';
+        preyEl.textContent = prey.icon;
+        preyEl.dataset.index = index;
+        preyEl.style.left = prey.x + '%';
+        preyEl.style.top = prey.y + '%';
+        preyEl.style.fontSize = prey.size + 'em';
         
-        this.preyContainer.appendChild(prey);
-        this.gameState.activePrey.push({ element: prey, type: preyKey });
+        this.preyContainer.appendChild(preyEl);
+        return preyEl;
+    }
+    
+    // تحديث موضع الفريسة
+    updatePreyPosition(index) {
+        const prey = this.state.prey[index];
+        if (!prey || !prey.element) return;
         
-        // إزالة تلقائية بعد 10 ثوان
-        setTimeout(() => {
-            if (prey.parentElement) {
-                prey.remove();
-                this.gameState.activePrey = this.gameState.activePrey.filter(p => p.element !== prey);
+        prey.element.style.left = prey.x + '%';
+        prey.element.style.top = prey.y + '%';
+    }
+    
+    // تحديث دورة النهار/الليل
+    updateDayNightCycle() {
+        const isDay = this.state.world.isDay;
+        
+        if (isDay) {
+            this.skyLayer.className = 'sky-layer day';
+            this.celestialBody.textContent = '☀️';
+            this.celestialBody.classList.remove('moon');
+            this.stars.classList.remove('visible');
+            document.getElementById('timeDisplay').textContent = '☀️';
+        } else {
+            this.skyLayer.className = 'sky-layer night';
+            this.celestialBody.textContent = '🌙';
+            this.celestialBody.classList.add('moon');
+            this.stars.classList.add('visible');
+            document.getElementById('timeDisplay').textContent = '🌙';
+        }
+    }
+    
+    // تحديث واجهة المستخدم
+    updateHUD() {
+        document.getElementById('zaarDisplay').textContent = Math.floor(this.state.player.zaar);
+        document.getElementById('lastDisplay').textContent = this.state.player.last.toFixed(3);
+        
+        const stage = CONFIG.STAGES[this.state.player.stage];
+        document.getElementById('stageDisplay').innerHTML = `${stage.icon} ${stage.name}`;
+        
+        this.character.textContent = stage.icon;
+    }
+}
+
+// ============================================
+// 🎮 نظام الإدخال والحركة
+// ============================================
+class InputController {
+    constructor(gameState, renderer) {
+        this.state = gameState;
+        this.renderer = renderer;
+        this.character = document.getElementById('character');
+        
+        this.setupListeners();
+    }
+    
+    setupListeners() {
+        // التحكم باللمس
+        this.character.addEventListener('touchstart', this.onTouchStart.bind(this));
+        this.character.addEventListener('touchmove', this.onTouchMove.bind(this));
+        this.character.addEventListener('touchend', this.onTouchEnd.bind(this));
+        
+        // التحكم بالماوس
+        this.character.addEventListener('mousedown', this.onMouseDown.bind(this));
+        document.addEventListener('mousemove', this.onMouseMove.bind(this));
+        document.addEventListener('mouseup', this.onMouseUp.bind(this));
+    }
+    
+    onTouchStart(e) {
+        e.preventDefault();
+        this.state.input.isDragging = true;
+        const touch = e.touches[0];
+        this.state.input.startX = touch.clientX;
+        this.state.input.startY = touch.clientY;
+        this.state.input.lastX = this.state.player.x;
+        this.state.input.lastY = this.state.player.y;
+    }
+    
+    onTouchMove(e) {
+        if (!this.state.input.isDragging) return;
+        e.preventDefault();
+        
+        const touch = e.touches[0];
+        const deltaX = (touch.clientX - this.state.input.startX) / window.innerWidth * 100;
+        const deltaY = (touch.clientY - this.state.input.startY) / window.innerHeight * 100;
+        
+        this.moveCharacter(deltaX, deltaY);
+        this.character.classList.add('moving');
+    }
+    
+    onTouchEnd(e) {
+        e.preventDefault();
+        this.state.input.isDragging = false;
+        this.character.classList.remove('moving');
+    }
+    
+    onMouseDown(e) {
+        e.preventDefault();
+        this.state.input.isDragging = true;
+        this.state.input.startX = e.clientX;
+        this.state.input.startY = e.clientY;
+        this.state.input.lastX = this.state.player.x;
+        this.state.input.lastY = this.state.player.y;
+    }
+    
+    onMouseMove(e) {
+        if (!this.state.input.isDragging) return;
+        
+        const deltaX = (e.clientX - this.state.input.startX) / window.innerWidth * 100;
+        const deltaY = (e.clientY - this.state.input.startY) / window.innerHeight * 100;
+        
+        this.moveCharacter(deltaX, deltaY);
+        this.character.classList.add('moving');
+    }
+    
+    onMouseUp(e) {
+        this.state.input.isDragging = false;
+        this.character.classList.remove('moving');
+    }
+    
+    moveCharacter(deltaX, deltaY) {
+        const stage = CONFIG.STAGES[this.state.player.stage];
+        const speed = stage.speed;
+        
+        this.state.player.x = Math.max(5, Math.min(CONFIG.WORLD_WIDTH - 5, 
+            this.state.input.lastX + deltaX * speed));
+        this.state.player.y = Math.max(5, Math.min(CONFIG.WORLD_HEIGHT - 5, 
+            this.state.input.lastY + deltaY * speed));
+        
+        this.renderer.updateCharacterPosition();
+    }
+}
+
+// ============================================
+// 🦌 نظام الذكاء الاصطناعي للفرائس
+// ============================================
+class PreyAI {
+    constructor(gameState, renderer) {
+        this.state = gameState;
+        this.renderer = renderer;
+    }
+    
+    // توليد فريسة جديدة
+    spawn() {
+        if (this.state.prey.length >= CONFIG.MAX_PREY) return;
+        
+        const types = Object.entries(CONFIG.PREY);
+        const [type, data] = types[Math.floor(Math.random() * types.length)];
+        
+        const prey = {
+            type,
+            icon: data.icon,
+            x: Math.random() * CONFIG.WORLD_WIDTH,
+            y: Math.random() * CONFIG.WORLD_HEIGHT,
+            vx: (Math.random() - 0.5) * data.speed,
+            vy: (Math.random() - 0.5) * data.speed,
+            size: data.size,
+            zaar: data.zaar,
+            last: data.last,
+            speed: data.speed,
+            scared: false,
+        };
+        
+        const index = this.state.prey.length;
+        this.state.prey.push(prey);
+        prey.element = this.renderer.spawnPrey(prey, index);
+        
+        // إضافة حدث الصيد
+        prey.element.onclick = () => this.hunt(index);
+    }
+    
+    // تحديث حركة الفرائس
+    update() {
+        this.state.prey.forEach((prey, index) => {
+            if (!prey) return;
+            
+            // حساب المسافة من الشخصية
+            const dx = this.state.player.x - prey.x;
+            const dy = this.state.player.y - prey.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            const stage = CONFIG.STAGES[this.state.player.stage];
+            const fearDistance = stage.huntRange * 0.5;
+            
+            // الهروب من الشخصية
+            if (distance < fearDistance) {
+                prey.scared = true;
+                prey.vx = -(dx / distance) * prey.speed * 2;
+                prey.vy = -(dy / distance) * prey.speed * 2;
+                prey.element.classList.add('running');
+            } else {
+                prey.scared = false;
+                prey.element.classList.remove('running');
+                
+                // حركة عشوائية
+                if (Math.random() < 0.02) {
+                    prey.vx = (Math.random() - 0.5) * prey.speed;
+                    prey.vy = (Math.random() - 0.5) * prey.speed;
+                }
             }
-        }, 10000);
+            
+            // تحديث الموضع
+            prey.x += prey.vx * 0.1;
+            prey.y += prey.vy * 0.1;
+            
+            // حدود الخريطة
+            if (prey.x < 0 || prey.x > CONFIG.WORLD_WIDTH) prey.vx *= -1;
+            if (prey.y < 0 || prey.y > CONFIG.WORLD_HEIGHT) prey.vy *= -1;
+            
+            prey.x = Math.max(0, Math.min(CONFIG.WORLD_WIDTH, prey.x));
+            prey.y = Math.max(0, Math.min(CONFIG.WORLD_HEIGHT, prey.y));
+            
+            this.renderer.updatePreyPosition(index);
+        });
     }
     
     // صيد الفريسة
-    catchPrey(element, preyKey, preyData) {
-        // التحقق من الطاقة
-        if (this.gameState.player.energy < CONFIG.HUNT_ENERGY_COST) {
-            showNotification('⚠️ طاقتك غير كافية!');
+    hunt(index) {
+        const prey = this.state.prey[index];
+        if (!prey) return;
+        
+        // حساب المسافة
+        const dx = this.state.player.x - prey.x;
+        const dy = this.state.player.y - prey.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        const stage = CONFIG.STAGES[this.state.player.stage];
+        
+        if (distance > stage.huntRange) {
+            showOwlMessage('⚠️ الفريسة بعيدة! اقترب أكثر');
             return;
         }
         
-        // استهلاك الطاقة
-        this.gameState.player.energy -= CONFIG.HUNT_ENERGY_COST;
-        
-        // تأثير الصيد
-        element.classList.add('caught');
-        const character = document.getElementById('character');
-        character.classList.add('hunting');
+        // نجح الصيد
+        prey.element.classList.add('caught');
+        document.getElementById('character').classList.add('hunting');
         
         setTimeout(() => {
-            character.classList.remove('hunting');
+            document.getElementById('character').classList.remove('hunting');
         }, 500);
         
-        // حساب المكافأة
-        const stage = CONFIG.STAGES[this.gameState.player.stage];
-        const zaarReward = Math.floor(preyData.zaarReward * stage.huntMultiplier);
-        const lastReward = preyData.lastReward * stage.huntMultiplier;
+        // المكافأة
+        this.state.addZaar(prey.zaar);
+        this.state.player.last += prey.last;
+        this.state.player.totalHunts++;
         
-        this.gameState.addZaar(zaarReward);
-        this.gameState.player.last += lastReward;
-        this.gameState.player.totalHunts++;
+        // جزيئات
+        createParticles(prey.x, prey.y, '⚛️', 8);
         
-        // تحديث المهام
-        this.gameState.updateTask(1, 1); // مهمة الصيد
-        this.gameState.updateTask(2, zaarReward); // مهمة جمع الزار
-        
-        // إزالة الفريسة
-        element.remove();
-        this.gameState.activePrey = this.gameState.activePrey.filter(p => p.element !== element);
-        
-        // جزيئات المكافأة
-        createParticles(element.offsetLeft, element.offsetTop, '⚛️', 5);
-        
-        // نافذة المكافأة
-        showReward({
-            icon: preyData.icon,
-            title: 'صيد رائع!',
-            zaar: zaarReward,
-            last: lastReward.toFixed(3),
-        });
-        
-        this.gameState.save();
-        updateUI();
-    }
-    
-    // مسح جميع الفرائس
-    clearAllPrey() {
-        this.gameState.activePrey.forEach(prey => {
-            if (prey.element.parentElement) {
+        // حذف الفريسة
+        setTimeout(() => {
+            if (prey.element && prey.element.parentElement) {
                 prey.element.remove();
             }
+            this.state.prey[index] = null;
+        }, 800);
+        
+        // عرض المكافأة
+        showReward({
+            icon: prey.icon,
+            title: 'صيد رائع!',
+            zaar: prey.zaar,
+            last: prey.last.toFixed(3),
         });
-        this.gameState.activePrey = [];
+        
+        this.state.save();
     }
 }
 
 // ============================================
-// 👮 نظام الصياد (المركزية)
+// ⛏️ نظام الحفر
 // ============================================
-class HunterSystem {
-    constructor(gameState, huntingSystem) {
-        this.gameState = gameState;
-        this.huntingSystem = huntingSystem;
-        this.hunter = document.getElementById('hunter');
-        this.owlGuide = document.getElementById('owlGuide');
+class DiggingSystem {
+    constructor(gameState, renderer) {
+        this.state = gameState;
+        this.renderer = renderer;
+        this.isDigging = false;
     }
     
-    // تفعيل الصياد
-    activate() {
-        if (this.gameState.hunterActive || this.gameState.player.inLake) return;
+    // تفعيل وضع الحفر
+    toggleMode() {
+        this.state.modes.digging = !this.state.modes.digging;
         
-        this.gameState.hunterActive = true;
-        this.hunter.classList.add('active');
+        const digBtn = document.getElementById('digBtn');
+        const spots = document.querySelectorAll('.dig-spot');
         
-        // رسالة البومة
-        showOwlMessage('⚠️ الصياد قادم! اذهب للبحيرة لحماية عملاتك!');
-        
-        // تأثير الخوف على الشبل
-        const character = document.getElementById('character');
-        character.classList.add('scared');
-        
-        // إزالة الصياد بعد 10 ثوان
-        this.gameState.hunterTimeout = setTimeout(() => {
-            this.deactivate();
-        }, CONFIG.HUNTER_DURATION);
-    }
-    
-    // إلغاء تفعيل الصياد
-    deactivate() {
-        this.gameState.hunterActive = false;
-        this.hunter.classList.remove('active');
-        
-        const character = document.getElementById('character');
-        character.classList.remove('scared');
-        
-        if (this.gameState.hunterTimeout) {
-            clearTimeout(this.gameState.hunterTimeout);
-            this.gameState.hunterTimeout = null;
-        }
-        
-        showOwlMessage('✅ الصياد رحل! يمكنك الاستكشاف بأمان.');
-    }
-    
-    // مراوغة الصياد (للمراحل المتقدمة)
-    dodge() {
-        if (!this.gameState.player.canDodge || !this.gameState.hunterActive) {
-            return false;
-        }
-        
-        // نجحت المراوغة
-        this.deactivate();
-        showNotification('🎭 راوغت الصياد ببراعة!');
-        this.gameState.addZaar(30); // مكافأة المراوغة
-        
-        return true;
-    }
-}
-
-// ============================================
-// 🌊 نظام البحيرة الاجتماعية
-// ============================================
-class SocialSystem {
-    constructor(gameState) {
-        this.gameState = gameState;
-        this.feedContainer = document.getElementById('socialFeed');
-    }
-    
-    // إنشاء منشور
-    createPost(content) {
-        const post = {
-            id: Date.now(),
-            username: 'اللاعب',
-            stage: this.gameState.player.stage,
-            content: content,
-            likes: 0,
-            timestamp: Date.now(),
-        };
-        
-        this.gameState.posts.unshift(post);
-        this.gameState.save();
-        
-        // مكافأة النشر
-        this.gameState.addZaar(10);
-        this.gameState.updateTask(3, 1); // مهمة النشر
-        
-        this.renderFeed();
-        showNotification('✅ تم نشر مغامرتك!\n🎁 +10 زار');
-    }
-    
-    // عرض المنشورات
-    renderFeed() {
-        this.feedContainer.innerHTML = '';
-        
-        if (this.gameState.posts.length === 0) {
-            this.feedContainer.innerHTML = `
-                <div style="text-align: center; padding: 50px; color: rgba(255,255,255,0.5);">
-                    <p style="font-size: 3em; margin-bottom: 20px;">🌊</p>
-                    <p>البحيرة فارغة!</p>
-                    <p>كن أول من يشارك مغامرته</p>
-                </div>
-            `;
-            return;
-        }
-        
-        this.gameState.posts.forEach(post => {
-            const postEl = document.createElement('div');
-            postEl.className = 'post';
+        if (this.state.modes.digging) {
+            digBtn.classList.add('active');
+            digBtn.textContent = '✅ جاهز للحفر';
             
-            const stageIcon = CONFIG.STAGES[post.stage].icon;
-            const timeAgo = this.getTimeAgo(post.timestamp);
+            // إظهار أماكن الحفر القريبة
+            spots.forEach((spot, i) => {
+                const digSpot = this.state.digSpots[i];
+                if (!digSpot.dug) {
+                    const dx = this.state.player.x - digSpot.x;
+                    const dy = this.state.player.y - digSpot.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 30) {
+                        spot.classList.add('active');
+                        spot.onclick = () => this.dig(i);
+                    }
+                }
+            });
             
-            postEl.innerHTML = `
-                <div class="post-header">
-                    <span class="icon">${stageIcon}</span>
-                    <span class="username">${post.username}</span>
-                    <span style="font-size: 0.8em; opacity: 0.6;">${timeAgo}</span>
-                </div>
-                <div class="post-content">${post.content}</div>
-                <div class="post-actions">
-                    <button onclick="likePost(${post.id})">❤️ ${post.likes}</button>
-                    <button>💬 تعليق</button>
-                    <button>🔄 مشاركة</button>
-                </div>
-            `;
-            
-            this.feedContainer.appendChild(postEl);
-        });
-    }
-    
-    // الإعجاب بمنشور
-    likePost(postId) {
-        const post = this.gameState.posts.find(p => p.id === postId);
-        if (post) {
-            post.likes++;
-            this.gameState.save();
-            this.renderFeed();
-        }
-    }
-    
-    // حساب الوقت المنقضي
-    getTimeAgo(timestamp) {
-        const seconds = Math.floor((Date.now() - timestamp) / 1000);
-        
-        if (seconds < 60) return 'الآن';
-        if (seconds < 3600) return `${Math.floor(seconds / 60)} د`;
-        if (seconds < 86400) return `${Math.floor(seconds / 3600)} س`;
-        return `${Math.floor(seconds / 86400)} ي`;
-    }
-}
-
-// ============================================
-// 🎨 نظام السويب
-// ============================================
-class SwipeSystem {
-    constructor(gameState) {
-        this.gameState = gameState;
-        this.sceneContainer = document.getElementById('sceneContainer');
-        this.currentScene = 'forest';
-        
-        this.setupSwipeListeners();
-    }
-    
-    setupSwipeListeners() {
-        let touchStartX = 0;
-        let touchStartY = 0;
-        
-        document.addEventListener('touchstart', (e) => {
-            touchStartX = e.changedTouches[0].screenX;
-            touchStartY = e.changedTouches[0].screenY;
-        });
-        
-        document.addEventListener('touchend', (e) => {
-            const touchEndX = e.changedTouches[0].screenX;
-            const touchEndY = e.changedTouches[0].screenY;
-            
-            this.handleSwipe(touchStartX, touchStartY, touchEndX, touchEndY);
-        });
-    }
-    
-    handleSwipe(startX, startY, endX, endY) {
-        const diffX = endX - startX;
-        const diffY = endY - startY;
-        
-        // تجاهل السويب العمودي
-        if (Math.abs(diffY) > Math.abs(diffX)) return;
-        
-        // الحد الأدنى للسويب
-        if (Math.abs(diffX) < 50) return;
-        
-        if (diffX > 0) {
-            // سويب يمين
-            this.swipeRight();
+            showOwlMessage('🦉 اضغط على البقع البنية للحفر!');
         } else {
-            // سويب يسار
-            this.swipeLeft();
+            digBtn.classList.remove('active');
+            digBtn.textContent = '⛏️ حفر';
+            spots.forEach(spot => {
+                spot.classList.remove('active');
+                spot.onclick = null;
+            });
         }
     }
     
-    swipeLeft() {
-        if (this.currentScene === 'forest') {
-            this.goToScene('lake');
+    // الحفر
+    async dig(index) {
+        if (this.isDigging) return;
+        
+        const spot = this.state.digSpots[index];
+        if (spot.dug) return;
+        
+        const spotEl = document.querySelector(`.dig-spot[data-index="${index}"]`);
+        
+        this.isDigging = true;
+        const character = document.getElementById('character');
+        character.classList.add('digging');
+        
+        // جزيئات التراب
+        const digInterval = setInterval(() => {
+            createDirtParticles(spot.x, spot.y);
+        }, 200);
+        
+        // انتظار مدة الحفر
+        await new Promise(resolve => setTimeout(resolve, CONFIG.DIG_DURATION));
+        
+        clearInterval(digInterval);
+        character.classList.remove('digging');
+        
+        // المكافأة
+        const reward = Math.floor(
+            Math.random() * (CONFIG.DIG_REWARD_MAX - CONFIG.DIG_REWARD_MIN) + CONFIG.DIG_REWARD_MIN
+        );
+        
+        this.state.addZaar(reward);
+        this.state.player.totalDigs++;
+        spot.dug = true;
+        
+        spotEl.classList.remove('active');
+        spotEl.style.opacity = '0.3';
+        
+        // جزيئات المكافأة
+        createParticles(spot.x, spot.y, '⚛️', 10);
+        
+        showReward({
+            icon: '⛏️',
+            title: 'حفر ناجح!',
+            zaar: reward,
+            last: '0',
+        });
+        
+        this.isDigging = false;
+        this.state.save();
+    }
+}
+
+// ============================================
+// 🌓 نظام الوقت
+// ============================================
+class TimeSystem {
+    constructor(gameState, renderer) {
+        this.state = gameState;
+        this.renderer = renderer;
+        this.elapsed = 0;
+    }
+    
+    update(deltaTime) {
+        this.elapsed += deltaTime;
+        
+        // تحديث دورة النهار/الليل
+        this.state.world.timeProgress = (this.elapsed % CONFIG.DAY_NIGHT_CYCLE) / CONFIG.DAY_NIGHT_CYCLE;
+        
+        // تبديل النهار/الليل
+        const wasDay = this.state.world.isDay;
+        this.state.world.isDay = this.state.world.timeProgress < 0.5;
+        
+        if (wasDay !== this.state.world.isDay) {
+            this.renderer.updateDayNightCycle();
             
-            // الذهاب للبحيرة يحمي من الصياد
-            if (this.gameState.hunterActive) {
-                this.gameState.player.inLake = true;
-                showOwlMessage('✅ أنت بأمان في البحيرة!');
+            if (this.state.world.isDay) {
+                showOwlMessage('🌅 طلع النهار! وقت الصيد');
+            } else {
+                showOwlMessage('🌙 حل الليل! احذر في الظلام');
             }
-        } else if (this.currentScene === 'academy') {
-            this.goToScene('forest');
         }
     }
     
-    swipeRight() {
-        if (this.currentScene === 'forest') {
-            this.goToScene('academy');
-        } else if (this.currentScene === 'lake') {
-            this.goToScene('forest');
-            this.gameState.player.inLake = false;
-        }
-    }
-    
-    goToScene(sceneName) {
-        this.currentScene = sceneName;
-        this.sceneContainer.className = `scene-container show-${sceneName}`;
-        this.gameState.player.currentScene = sceneName;
-        this.gameState.save();
-        
-        // تحديث البحيرة إذا دخلها
-        if (sceneName === 'lake') {
-            game.socialSystem.renderFeed();
-        }
-        
-        // تحديث المهام إذا دخل الأكاديمية
-        if (sceneName === 'academy') {
-            renderDailyTasks();
-        }
+    toggle() {
+        this.state.world.isDay = !this.state.world.isDay;
+        this.renderer.updateDayNightCycle();
     }
 }
 
 // ============================================
-// 🎬 واجهة المستخدم
-// ============================================
-function updateUI() {
-    // تحديث العملات
-    document.getElementById('zaarCount').textContent = Math.floor(game.state.player.zaar);
-    document.getElementById('lastCount').textContent = game.state.player.last.toFixed(3);
-    
-    // تحديث الطاقة
-    const energyPercent = (game.state.player.energy / CONFIG.ENERGY_MAX) * 100;
-    const energyFill = document.getElementById('energyFill');
-    energyFill.style.width = energyPercent + '%';
-    energyFill.textContent = Math.floor(game.state.player.energy) + '%';
-    
-    // تحديث الشخصية
-    const stage = CONFIG.STAGES[game.state.player.stage];
-    document.getElementById('character').innerHTML = stage.icon;
-    document.getElementById('stageIndicator').innerHTML = `${stage.icon} ${stage.name}`;
-    
-    // زر التطور
-    const evolveBtn = document.getElementById('evolveBtn');
-    const evolutionIndicator = document.getElementById('evolutionIndicator');
-    
-    if (game.state.canEvolve()) {
-        evolveBtn.style.display = 'block';
-        evolutionIndicator.style.display = 'block';
-    } else {
-        evolveBtn.style.display = 'none';
-        evolutionIndicator.style.display = 'none';
-    }
-}
-
-// عرض المكافأة
-function showReward(data) {
-    const popup = document.getElementById('rewardPopup');
-    document.getElementById('rewardIcon').textContent = data.icon;
-    document.getElementById('rewardTitle').textContent = data.title;
-    document.getElementById('rewardAmount').innerHTML = `
-        +${data.zaar} ⚛️ زار<br>
-        +${data.last} 💎 LAST
-    `;
-    document.getElementById('rewardMessage').textContent = data.message || '';
-    
-    popup.classList.add('active');
-}
-
-function closeRewardPopup() {
-    document.getElementById('rewardPopup').classList.remove('active');
-}
-
-// إشعار سريع
-function showNotification(message) {
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-        position: fixed;
-        top: 120px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.9);
-        color: #fff;
-        padding: 15px 25px;
-        border-radius: 10px;
-        border: 2px solid #ffd700;
-        z-index: 1000;
-        animation: fadeIn 0.3s;
-        max-width: 90%;
-        text-align: center;
-    `;
-    notification.innerHTML = message;
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.style.animation = 'fadeOut 0.3s';
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-}
-
-// رسالة البومة
-function showOwlMessage(message) {
-    const owlSpeech = document.getElementById('owlSpeech');
-    const owlMessage = document.getElementById('owlMessage');
-    
-    owlMessage.textContent = message;
-    owlSpeech.classList.add('active');
-    
-    setTimeout(() => {
-        owlSpeech.classList.remove('active');
-    }, 5000);
-}
-
-function toggleOwlSpeech() {
-    const owlSpeech = document.getElementById('owlSpeech');
-    owlSpeech.classList.toggle('active');
-}
-
-// جزيئات التأثيرات
-function createParticles(x, y, icon, count) {
-    for (let i = 0; i < count; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'particle';
-        particle.textContent = icon;
-        particle.style.left = x + 'px';
-        particle.style.top = y + 'px';
-        particle.style.fontSize = (1 + Math.random()) + 'em';
-        
-        document.body.appendChild(particle);
-        
-        setTimeout(() => particle.remove(), 2000);
-    }
-}
-
-// التطور
-function evolve() {
-    if (!game.state.evolve()) return;
-    
-    const evolutionScreen = document.getElementById('evolutionScreen');
-    const gate = document.getElementById('evolutionGate');
-    const newChar = document.getElementById('newCharacter');
-    const title = document.getElementById('evolutionTitle');
-    
-    const stage = CONFIG.STAGES[game.state.player.stage];
-    
-    evolutionScreen.classList.add('active');
-    
-    // أنيميشن تحطم البوابة
-    setTimeout(() => {
-        gate.classList.add('breaking');
-    }, 500);
-    
-    // ظهور الشخصية الجديدة
-    setTimeout(() => {
-        newChar.textContent = stage.icon;
-        newChar.classList.add('show');
-        title.textContent = `تطورت إلى: ${stage.name}! 🎉`;
-    }, 2500);
-    
-    updateUI();
-}
-
-function closeEvolutionScreen() {
-    document.getElementById('evolutionScreen').classList.remove('active');
-    document.getElementById('evolutionGate').classList.remove('breaking');
-    document.getElementById('newCharacter').classList.remove('show');
-}
-
-// إنشاء منشور
-function createPost() {
-    const content = prompt('شارك مغامرتك:');
-    if (content && content.trim()) {
-        game.socialSystem.createPost(content.trim());
-    }
-}
-
-// الإعجاب بمنشور
-function likePost(postId) {
-    game.socialSystem.likePost(postId);
-}
-
-// عرض المهام اليومية
-function renderDailyTasks() {
-    const container = document.getElementById('dailyTasks');
-    container.innerHTML = '<h2 style="margin-bottom: 30px;">📋 المهام اليومية</h2>';
-    
-    game.state.dailyTasks.forEach(task => {
-        const progress = (task.progress / task.target) * 100;
-        const taskEl = document.createElement('div');
-        taskEl.style.cssText = `
-            background: rgba(255, 255, 255, 0.1);
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 15px;
-            border: 2px solid ${task.completed ? '#4caf50' : 'rgba(255, 255, 255, 0.2)'};
-        `;
-        
-        taskEl.innerHTML = `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                <span style="font-weight: bold;">${task.completed ? '✅' : '⭕'} ${task.title}</span>
-                <span style="color: #ffd700;">+${task.reward} زار</span>
-            </div>
-            <div style="background: rgba(0,0,0,0.3); height: 10px; border-radius: 5px; overflow: hidden;">
-                <div style="background: #4caf50; height: 100%; width: ${progress}%;"></div>
-            </div>
-            <div style="text-align: center; margin-top: 5px; font-size: 0.9em; opacity: 0.8;">
-                ${task.progress} / ${task.target}
-            </div>
-        `;
-        
-        container.appendChild(taskEl);
-    });
-}
-
-// الإعدادات
-function openSettings() {
-    const settings = `
-        🎮 إعدادات اللعبة
-        
-        المرحلة: ${CONFIG.STAGES[game.state.player.stage].name}
-        إجمالي الصيد: ${game.state.player.totalHunts}
-        
-        خيارات:
-        - تحويل تلقائي للزار: ${game.state.autoConvert ? 'مفعّل ✅' : 'معطّل ❌'}
-        - المراوغة: ${game.state.player.canDodge ? 'متاحة ✅' : 'غير متاحة ❌'}
-    `;
-    
-    alert(settings);
-}
-
-// ============================================
-// 🎮 تهيئة اللعبة
+// 🎮 المحرك الرئيسي
 // ============================================
 class Game {
     constructor() {
         this.state = new GameState();
-        this.huntingSystem = new HuntingSystem(this.state);
-        this.hunterSystem = new HunterSystem(this.state, this.huntingSystem);
-        this.socialSystem = new SocialSystem(this.state);
-        this.swipeSystem = new SwipeSystem(this.state);
+        this.renderer = new Renderer(this.state);
+        this.input = new InputController(this.state, this.renderer);
+        this.preyAI = new PreyAI(this.state, this.renderer);
+        this.digging = new DiggingSystem(this.state, this.renderer);
+        this.time = new TimeSystem(this.state, this.renderer);
         
         this.lastUpdate = Date.now();
         
         this.init();
     }
     
-    init() {
-        updateUI();
-        this.startGameLoop();
-        this.startPreySpawner();
-        this.startHunterSpawner();
-        
-        // رسالة ترحيب
+    async init() {
+        // إخفاء شاشة التحميل
         setTimeout(() => {
-            showOwlMessage(`
-                مرحباً أيها الشبل! 🐾
-                
-                اصطد الفرائس لتجمع الزار والـ LAST!
-                اسحب يساراً للبحيرة، ويميناً للأكاديمية.
-                
-                احذر من الصياد! 🎯
-            `);
-        }, 1000);
+            document.getElementById('loading').classList.add('hide');
+            this.showWelcome();
+        }, 2000);
+        
+        // بدء حلقة اللعبة
+        this.startGameLoop();
+        
+        // بدء توليد الفرائس
+        setInterval(() => {
+            this.preyAI.spawn();
+        }, CONFIG.PREY_SPAWN_INTERVAL);
+        
+        // توليد فرائس أولية
+        for (let i = 0; i < 3; i++) {
+            this.preyAI.spawn();
+        }
     }
     
     startGameLoop() {
-        setInterval(() => {
+        const loop = () => {
             const now = Date.now();
-            const delta = now - this.lastUpdate;
+            const deltaTime = now - this.lastUpdate;
             this.lastUpdate = now;
             
-            // تحديث الطاقة
-            this.state.updateEnergy(delta);
-            updateUI();
-        }, 100);
+            // تحديث الأنظمة
+            this.preyAI.update();
+            this.time.update(deltaTime);
+            this.renderer.updateCamera();
+            this.renderer.updateHUD();
+            
+            requestAnimationFrame(loop);
+        };
+        
+        requestAnimationFrame(loop);
     }
     
-    startPreySpawner() {
-        setInterval(() => {
-            if (this.state.player.currentScene === 'forest' && !this.state.hunterActive) {
-                this.huntingSystem.spawnPrey();
-            }
-        }, CONFIG.PREY_SPAWN_INTERVAL);
-    }
-    
-    startHunterSpawner() {
-        setInterval(() => {
-            if (this.state.player.currentScene === 'forest' && 
-                !this.state.hunterActive && 
-                Math.random() < CONFIG.HUNTER_SPAWN_CHANCE) {
-                this.hunterSystem.activate();
-            }
-        }, 20000); // كل 20 ثانية فرصة لظهور الصياد
+    showWelcome() {
+        showOwlMessage(`
+            🦉 مرحباً أيها الشبل!
+            
+            • المس الشبل وحرّكه باصبعك لاستكشاف الغابة
+            • اضغط على الحيوانات لصيدها
+            • استخدم زر الحفر لجمع الزار من الأرض
+            • الليل والنهار يتبدلان تلقائياً
+            
+            حظاً موفقاً في مغامرتك! 🌲
+        `);
     }
 }
 
-// بدء اللعبة
+// ============================================
+// 🎨 وظائف مساعدة
+// ============================================
+
+function showOwlMessage(message) {
+    const owlMsg = document.getElementById('owlMessage');
+    owlMsg.innerHTML = message.replace(/\n/g, '<br>');
+    owlMsg.classList.add('show');
+    
+    setTimeout(() => {
+        owlMsg.classList.remove('show');
+    }, 5000);
+}
+
+function showReward(data) {
+    const notification = document.getElementById('rewardNotification');
+    document.getElementById('rewardIcon').textContent = data.icon;
+    document.getElementById('rewardTitle').textContent = data.title;
+    document.getElementById('rewardAmount').innerHTML = `+${data.zaar} ⚛️ زار<br>+${data.last} 💎 LAST`;
+    
+    notification.classList.add('show');
+}
+
+function closeReward() {
+    document.getElementById('rewardNotification').classList.remove('show');
+}
+
+function createParticles(x, y, icon, count) {
+    const world = document.getElementById('gameWorld');
+    
+    for (let i = 0; i < count; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.textContent = icon;
+        particle.style.left = x + '%';
+        particle.style.top = y + '%';
+        
+        world.appendChild(particle);
+        
+        setTimeout(() => particle.remove(), 2000);
+    }
+}
+
+function createDirtParticles(x, y) {
+    const world = document.getElementById('gameWorld');
+    
+    for (let i = 0; i < 5; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'dirt-particle';
+        particle.style.left = x + '%';
+        particle.style.top = y + '%';
+        
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 20 + Math.random() * 30;
+        const xOffset = Math.cos(angle) * distance;
+        const yOffset = Math.sin(angle) * distance;
+        
+        particle.style.setProperty('--x', xOffset + 'px');
+        particle.style.setProperty('--y', yOffset + 'px');
+        
+        world.appendChild(particle);
+        
+        setTimeout(() => particle.remove(), 1000);
+    }
+}
+
+// ============================================
+// 🎮 الأزرار والتحكم
+// ============================================
+
+function toggleDigMode() {
+    game.digging.toggleMode();
+}
+
+function toggleDayNight() {
+    game.time.toggle();
+}
+
+// البومة
+document.getElementById('owl').onclick = () => {
+    const owlMsg = document.getElementById('owlMessage');
+    owlMsg.classList.toggle('show');
+};
+
+// ============================================
+// 🚀 بدء اللعبة
+// ============================================
 const game = new Game();
 
-// مفاتيح سريعة للاختبار
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft') game.swipeSystem.swipeLeft();
-    if (e.key === 'ArrowRight') game.swipeSystem.swipeRight();
-    if (e.key === 'd' && game.state.hunterActive && game.state.player.canDodge) {
-        game.hunterSystem.dodge();
-    }
-});
+console.log('🦁 اللعبة جاهزة!');
