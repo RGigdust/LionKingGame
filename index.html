@@ -2,71 +2,711 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>THE LAST - العرين</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>🦁 رحلة الشبل - استكشاف الغابة</title>
     <style>
-        body { margin: 0; background: #000; color: gold; font-family: sans-serif; overflow: hidden; }
-        #game-stage { position: relative; width: 100vw; height: 100vh; background: #050a05; }
-        
-        .vault-header { position: absolute; top: 0; width: 100%; padding: 20px; background: rgba(0,0,0,0.9); border-bottom: 1px solid #d4af37; text-align: center; z-index: 100; }
-        
-        /* الشبل (الصورة الأولى اللي رفعتها) */
-        #shibl { position: absolute; bottom: 20%; left: 50%; transform: translateX(-50%); width: 150px; z-index: 10; transition: 0.1s; }
-        
-        /* البومة (الصورة التانية) */
-        #mentor-owl { position: absolute; top: 100px; right: 20px; width: 60px; z-index: 50; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: none;
+        }
 
-        .dig-progress { position: absolute; bottom: 12%; width: 70%; left: 15%; height: 10px; background: #222; border: 1px solid gold; border-radius: 10px; overflow: hidden; }
-        #fill { width: 0%; height: 100%; background: linear-gradient(90deg, #d4af37, #fff); }
-        
-        .shake { animation: shake 0.2s infinite; }
-        @keyframes shake { 0% { transform: translateX(-50%) rotate(0deg); } 50% { transform: translateX(-52%) rotate(-2deg); } 100% { transform: translateX(-48%) rotate(2deg); } }
+        body {
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000;
+        }
+
+        /* =================================== */
+        /* عالم اللعبة - الغابة الكبيرة */
+        /* =================================== */
+        #gameWorld {
+            position: relative;
+            width: 300vw;
+            height: 300vh;
+            transition: filter 2s;
+        }
+
+        /* الكاميرا - منطقة الرؤية */
+        #camera {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* طبقة السماء والجو */
+        .sky-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            transition: background 3s;
+        }
+
+        .sky-layer.day {
+            background: linear-gradient(180deg, #87CEEB 0%, #98D8E8 40%, #90EE90 100%);
+        }
+
+        .sky-layer.night {
+            background: linear-gradient(180deg, #0a0a2e 0%, #16213e 40%, #1a1a2e 100%);
+        }
+
+        /* طبقة الأشجار - خلفية */
+        .trees-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .tree {
+            position: absolute;
+            font-size: 8em;
+            opacity: 0.6;
+            filter: blur(1px);
+            animation: tree-sway 4s ease-in-out infinite;
+        }
+
+        @keyframes tree-sway {
+            0%, 100% { transform: rotate(-2deg); }
+            50% { transform: rotate(2deg); }
+        }
+
+        /* طبقة الأرض */
+        .ground-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(34, 139, 34, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 60%, rgba(34, 139, 34, 0.2) 0%, transparent 50%),
+                repeating-linear-gradient(90deg, 
+                    transparent 0px, 
+                    rgba(0, 100, 0, 0.1) 50px, 
+                    transparent 100px
+                );
+        }
+
+        /* البحيرة - جزء من الخريطة */
+        .lake {
+            position: absolute;
+            bottom: 20%;
+            left: 30%;
+            width: 600px;
+            height: 400px;
+            background: radial-gradient(ellipse at center, 
+                rgba(30, 144, 255, 0.6) 0%, 
+                rgba(0, 100, 200, 0.4) 50%, 
+                transparent 80%
+            );
+            border-radius: 50%;
+            z-index: 4;
+            animation: water-ripple 3s ease-in-out infinite;
+        }
+
+        @keyframes water-ripple {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
+        /* الشمس والقمر */
+        .celestial-body {
+            position: fixed;
+            top: 10%;
+            right: 15%;
+            font-size: 6em;
+            z-index: 5;
+            transition: all 2s;
+            filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.8));
+        }
+
+        .celestial-body.moon {
+            filter: drop-shadow(0 0 40px rgba(200, 200, 255, 0.9));
+        }
+
+        /* النجوم (الليل فقط) */
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 6;
+            opacity: 0;
+            transition: opacity 2s;
+            pointer-events: none;
+        }
+
+        .stars.visible {
+            opacity: 1;
+        }
+
+        .star {
+            position: absolute;
+            color: white;
+            font-size: 0.5em;
+            animation: twinkle 3s ease-in-out infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        /* =================================== */
+        /* الشخصية - الشبل/الأسد */
+        /* =================================== */
+        #character {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 10em;
+            z-index: 50;
+            cursor: grab;
+            user-select: none;
+            transition: transform 0.1s;
+            filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.5));
+        }
+
+        #character:active {
+            cursor: grabbing;
+        }
+
+        #character.moving {
+            animation: walk 0.4s steps(2) infinite;
+        }
+
+        @keyframes walk {
+            0%, 100% { transform: translate(-50%, -50%) rotate(-3deg); }
+            50% { transform: translate(-50%, -50%) rotate(3deg); }
+        }
+
+        #character.digging {
+            animation: dig 0.8s ease-in-out infinite;
+        }
+
+        @keyframes dig {
+            0%, 100% { transform: translate(-50%, -50%) rotate(0deg) scaleY(1); }
+            25% { transform: translate(-50%, -50%) rotate(-10deg) scaleY(0.9); }
+            75% { transform: translate(-50%, -50%) rotate(10deg) scaleY(0.9); }
+        }
+
+        #character.hunting {
+            animation: pounce 0.5s ease-out;
+        }
+
+        @keyframes pounce {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.2) rotate(15deg); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        /* =================================== */
+        /* الفرائس - الحيوانات */
+        /* =================================== */
+        .prey {
+            position: absolute;
+            font-size: 4em;
+            z-index: 40;
+            cursor: pointer;
+            transition: transform 0.1s;
+            filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.3));
+        }
+
+        .prey:hover {
+            transform: scale(1.1);
+        }
+
+        .prey.running {
+            animation: prey-run 0.3s steps(2) infinite;
+        }
+
+        @keyframes prey-run {
+            0%, 100% { transform: rotate(-5deg); }
+            50% { transform: rotate(5deg); }
+        }
+
+        .prey.caught {
+            animation: prey-caught 0.8s ease-out forwards;
+        }
+
+        @keyframes prey-caught {
+            0% { 
+                transform: scale(1) rotate(0deg); 
+                opacity: 1; 
+            }
+            50% { 
+                transform: scale(1.5) rotate(180deg); 
+                opacity: 0.8; 
+            }
+            100% { 
+                transform: scale(0) rotate(360deg); 
+                opacity: 0; 
+            }
+        }
+
+        /* =================================== */
+        /* مكان الحفر */
+        /* =================================== */
+        .dig-spot {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle, 
+                rgba(139, 69, 19, 0.8) 0%, 
+                rgba(101, 67, 33, 0.6) 50%, 
+                transparent 80%
+            );
+            border-radius: 50%;
+            z-index: 35;
+            display: none;
+            animation: dig-pulse 1s ease-in-out infinite;
+        }
+
+        .dig-spot.active {
+            display: block;
+        }
+
+        @keyframes dig-pulse {
+            0%, 100% { transform: scale(1); opacity: 0.6; }
+            50% { transform: scale(1.1); opacity: 0.9; }
+        }
+
+        /* جزيئات التراب */
+        .dirt-particle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #8B4513;
+            border-radius: 50%;
+            z-index: 45;
+            pointer-events: none;
+            animation: dirt-fly 1s ease-out forwards;
+        }
+
+        @keyframes dirt-fly {
+            0% { 
+                transform: translate(0, 0) scale(1); 
+                opacity: 1; 
+            }
+            100% { 
+                transform: translate(var(--x), var(--y)) scale(0); 
+                opacity: 0; 
+            }
+        }
+
+        /* =================================== */
+        /* واجهة المستخدم - HUD */
+        /* =================================== */
+        #hud {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px;
+            z-index: 100;
+            background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none;
+        }
+
+        .hud-item {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 12px 20px;
+            border-radius: 20px;
+            color: #fff;
+            font-weight: bold;
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .hud-item .icon {
+            font-size: 1.8em;
+        }
+
+        .hud-item .value {
+            color: #ffd700;
+            font-size: 1.2em;
+        }
+
+        /* مؤشر المرحلة */
+        #stageDisplay {
+            position: fixed;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 10px 30px;
+            border-radius: 25px;
+            color: #ffd700;
+            font-weight: bold;
+            font-size: 1.1em;
+            border: 2px solid #ffd700;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        /* مؤشر الوقت */
+        #timeDisplay {
+            position: fixed;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 3em;
+            z-index: 100;
+            pointer-events: none;
+            filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.5));
+        }
+
+        /* =================================== */
+        /* البومة المرشدة */
+        /* =================================== */
+        #owl {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            font-size: 4em;
+            cursor: pointer;
+            z-index: 90;
+            animation: owl-float 2s ease-in-out infinite;
+            filter: drop-shadow(0 5px 15px rgba(255, 215, 0, 0.5));
+            transition: transform 0.2s;
+        }
+
+        #owl:active {
+            transform: scale(0.9);
+        }
+
+        @keyframes owl-float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        .owl-message {
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            max-width: 300px;
+            background: rgba(0, 0, 0, 0.95);
+            color: #ffd700;
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid #ffd700;
+            z-index: 89;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s;
+            pointer-events: none;
+        }
+
+        .owl-message.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .owl-message::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            right: 50px;
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 10px solid #ffd700;
+        }
+
+        /* =================================== */
+        /* نافذة المكافأة */
+        /* =================================== */
+        .reward-notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            border: 3px solid #ffd700;
+            z-index: 200;
+            text-align: center;
+            min-width: 300px;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.8);
+        }
+
+        .reward-notification.show {
+            animation: reward-popup 0.5s forwards;
+        }
+
+        @keyframes reward-popup {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        .reward-notification .icon {
+            font-size: 5em;
+            margin-bottom: 20px;
+        }
+
+        .reward-notification .title {
+            font-size: 1.8em;
+            color: #ffd700;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .reward-notification .amount {
+            font-size: 2.5em;
+            color: #fff;
+            margin: 20px 0;
+        }
+
+        .reward-notification button {
+            background: #ffd700;
+            color: #000;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 1.1em;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        /* =================================== */
+        /* أزرار التحكم */
+        /* =================================== */
+        .control-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 90;
+        }
+
+        .control-btn {
+            background: rgba(255, 215, 0, 0.9);
+            color: #000;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 1.1em;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s;
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+
+        .control-btn.active {
+            background: #4caf50;
+            animation: pulse-btn 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse-btn {
+            0%, 100% { box-shadow: 0 5px 15px rgba(76, 175, 80, 0.5); }
+            50% { box-shadow: 0 5px 25px rgba(76, 175, 80, 0.8); }
+        }
+
+        /* Joystick للحركة (اختياري) */
+        #joystick {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            z-index: 90;
+            display: none;
+        }
+
+        #joystick .stick {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 215, 0, 0.8);
+            border-radius: 50%;
+            transition: all 0.1s;
+        }
+
+        /* تأثيرات الجسيمات */
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            z-index: 60;
+            font-size: 1.5em;
+            animation: particle-rise 2s ease-out forwards;
+        }
+
+        @keyframes particle-rise {
+            0% { 
+                opacity: 1; 
+                transform: translateY(0) scale(1); 
+            }
+            100% { 
+                opacity: 0; 
+                transform: translateY(-100px) scale(0); 
+            }
+        }
+
+        /* Loading Screen */
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #ffd700;
+            transition: opacity 0.5s;
+        }
+
+        #loading.hide {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #loading .logo {
+            font-size: 8em;
+            margin-bottom: 30px;
+            animation: loading-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes loading-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            #character { font-size: 8em; }
+            .prey { font-size: 3em; }
+            .tree { font-size: 6em; }
+            .celestial-body { font-size: 4em; }
+        }
     </style>
 </head>
 <body>
-
-<div id="game-stage">
-    <div class="vault-header">
-        <div style="font-size: 18px;">الوعاء الملكي: <span id="vault-total">250,000</span></div>
-        <div style="font-size: 14px; color: #aaa;">الزار المجموع: <span id="zar-val">0</span></div>
+    <!-- شاشة التحميل -->
+    <div id="loading">
+        <div class="logo">🦁</div>
+        <h1 style="margin-bottom: 20px;">رحلة الشبل</h1>
+        <p>جاري تحضير الغابة...</p>
     </div>
 
-    <img id="mentor-owl" src="1769973611114.png" alt="البومة"> 
-    <img id="shibl" src="1769919542610.png" alt="الشبل">
+    <!-- الكاميرا -->
+    <div id="camera">
+        <!-- عالم اللعبة -->
+        <div id="gameWorld">
+            <!-- السماء -->
+            <div class="sky-layer day" id="skyLayer"></div>
 
-    <div class="dig-progress"><div id="fill"></div></div>
-</div>
+            <!-- النجوم (الليل) -->
+            <div class="stars" id="stars"></div>
 
-<script>
-    let zar = 0;
-    let vault = 250000;
-    let progress = 0;
-    let miningInterval;
+            <!-- الشمس/القمر -->
+            <div class="celestial-body" id="celestialBody">☀️</div>
 
-    const shibl = document.getElementById('shibl');
-    const fill = document.getElementById('fill');
+            <!-- طبقة الأشجار الخلفية -->
+            <div class="trees-background" id="treesBackground"></div>
 
-    // ميكانيكا الحفر (لمس مطول)
-    shibl.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        shibl.classList.add('shake');
-        miningInterval = setInterval(() => {
-            progress += 2; 
-            fill.style.width = progress + "%";
-            if (progress >= 100) {
-                progress = 0;
-                zar += 10;
-                vault -= 10;
-                document.getElementById('zar-val').innerText = zar;
-                document.getElementById('vault-total').innerText = vault.toLocaleString();
-            }
-        }, 100);
-    });
+            <!-- طبقة الأرض -->
+            <div class="ground-layer"></div>
 
-    shibl.addEventListener('touchend', () => {
-        shibl.classList.remove('shake');
-        clearInterval(miningInterval);
-    });
-</script>
+            <!-- البحيرة -->
+            <div class="lake"></div>
+
+            <!-- أماكن الحفر -->
+            <div id="digSpotsContainer"></div>
+
+            <!-- الفرائس -->
+            <div id="preyContainer"></div>
+
+            <!-- الشخصية الرئيسية -->
+            <div id="character">🐾</div>
+        </div>
+    </div>
+
+    <!-- واجهة المستخدم -->
+    <div id="hud">
+        <div class="hud-item">
+            <span class="icon">⚛️</span>
+            <div>
+                <div style="font-size: 0.8em; opacity: 0.8;">زار</div>
+                <div class="value" id="zaarDisplay">0</div>
+            </div>
+        </div>
+
+        <div class="hud-item">
+            <span class="icon">💎</span>
+            <div>
+                <div style="font-size: 0.8em; opacity: 0.8;">LAST</div>
+                <div class="value" id="lastDisplay">0.000</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- مؤشر الوقت -->
+    <div id="timeDisplay">☀️</div>
+
+    <!-- مؤشر المرحلة -->
+    <div id="stageDisplay">🐾 شبل صغير</div>
+
+    <!-- البومة -->
+    <div id="owl">🦉</div>
+    <div class="owl-message" id="owlMessage">
+        مرحباً أيها الشبل! المس الشاشة وحرك إصبعك لاستكشاف الغابة 🌲
+    </div>
+
+    <!-- نافذة المكافأة -->
+    <div class="reward-notification" id="rewardNotification">
+        <div class="icon" id="rewardIcon">🎉</div>
+        <div class="title" id="rewardTitle">صيد رائع!</div>
+        <div class="amount" id="rewardAmount">+10 ⚛️</div>
+        <button onclick="closeReward()">رائع! 🎉</button>
+    </div>
+
+    <!-- أزرار التحكم -->
+    <div class="control-panel">
+        <button class="control-btn" id="digBtn" onclick="toggleDigMode()">⛏️ حفر</button>
+        <button class="control-btn" id="timeBtn" onclick="toggleDayNight()">🌓 وقت</button>
+    </div>
+
+    <script src="game-realistic.js"></script>
 </body>
 </html>
