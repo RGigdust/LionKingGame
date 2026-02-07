@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🦁 LAST - المليون الأخير</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: Arial, sans-serif; overflow: hidden; background: #000; touch-action: none; }
+
+        /* الشاشة الافتتاحية */
+        #splash { position: fixed; inset: 0; background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.5s; }
+        #splash.hide { opacity: 0; pointer-events: none; }
+        .splash-logo { font-size: 10em; animation: bounce 1.5s infinite; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-30px); } }
+        .splash-title { font-size: 2.5em; color: #ffd700; margin: 20px 0; text-shadow: 0 0 20px rgba(255,215,0,0.6); }
+        .start-btn { padding: 18px 50px; font-size: 1.5em; background: #ffd700; color: #000; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .start-btn:active { transform: scale(0.9); }
+
+        /* عالم اللعبة */
+        #game { position: fixed; inset: 0; display: none; }
+        #game.active { display: block; }
+        #world { position: absolute; width: 300vw; height: 300vh; background: #1a5f1a radial-gradient(circle, #228b22 10%, transparent 11%); background-size: 100px 100px; transition: transform 0.1s ease-out; }
+
+        /* اللاعب والعناصر */
+        #player { position: absolute; width: 80px; height: 80px; font-size: 4em; display: flex; align-items: center; justify-content: center; z-index: 100; transition: transform 0.1s; }
+        #player.walk { animation: walk 0.3s infinite; }
+        @keyframes walk { 0% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } 100% { transform: rotate(-5deg); } }
+        
+        .item { position: absolute; font-size: 3em; cursor: pointer; user-select: none; }
+        .lake { position: absolute; width: 400px; height: 300px; background: rgba(30,144,255,0.4); border-radius: 50%; box-shadow: inset 0 0 50px rgba(0,0,0,0.2); }
+        .tree { position: absolute; font-size: 4em; opacity: 0.8; }
+
+        /* واجهة المستخدم */
+        #hud { position: fixed; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; z-index: 1000; pointer-events: none; }
+        .stat { background: rgba(0,0,0,0.7); color: #ffd700; padding: 10px 15px; border-radius: 15px; border: 1px solid #ffd700; font-weight: bold; pointer-events: auto; }
+        
+        #progress { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); width: 250px; height: 20px; background: #222; border-radius: 10px; display: none; border: 2px solid #fff; }
+        #progress-bar { height: 100%; width: 0%; background: #4caf50; border-radius: 8px; }
+
+        #msg { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); color: #fff; padding: 20px; border-radius: 15px; text-align: center; display: none; z-index: 2000; border: 2px solid #ffd700; }
+        #warn { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: red; color: white; padding: 10px 20px; border-radius: 10px; display: none; z-index: 2000; font-weight: bold; }
+        #hunter { position: absolute; font-size: 4em; z-index: 90; display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="splash">
+        <div class="splash-logo">🦁</div>
+        <h1 class="splash-title">رحلة المليون الأخير</h1>
+        <button class="start-btn" onclick="startGame()">ابدأ الرحلة</button>
+    </div>
+
+    <div id="game">
+        <div id="world">
+            <div id="player">🐾</div>
+            <div id="hunter">🎯</div>
+        </div>
+        <div id="hud">
+            <div class="stat">⚛️ <span id="zaar">0</span></div>
+            <div class="stat">💎 <span id="last">0.00</span></div>
+            <div class="stat">📊 Lvl: <span id="lvl">1</span></div>
+        </div>
+        <div id="progress"><div id="progress-bar"></div></div>
+        <div id="msg"></div>
+        <div id="warn">🚨 المركزية تطاردك!</div>
+    </div>
+
+    <script>
+        const state = { x: 150, y: 150, zaar: 0, last: 0, lvl: 1, isDragging: false, isDigging: false, hunterActive: false };
+        const E = {
+            world: document.getElementById('world'),
+            player: document.getElementById('player'),
+            hunter: document.getElementById('hunter'),
+            zaar: document.getElementById('zaar'),
+            last: document.getElementById('last'),
+            lvl: document.getElementById('lvl'),
+            msg: document.getElementById('msg'),
+            warn: document.getElementById('warn'),
+            bar: document.getElementById('progress-bar'),
+            prog: document.getElementById('progress')
+        };
+
+        function startGame() {
+            document.getElementById('splash').classList.add('hide');
+            document.getElementById('game').classList.add('active');
+            initWorld();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function initWorld() {
+            // إضافة أشجار وبحيرات عشوائية
+            for(let i=0; i<40; i++) createEl('🌳', 'tree');
+            for(let i=0; i<5; i++) createEl('', 'lake');
+            for(let i=0; i<10; i++) createEl('📦', 'item treasure', true);
+            updatePlayerPos();
+        }
+
+        function createEl(txt, cls, click = false) {
+            const el = document.createElement('div');
+            el.className = cls;
+            el.textContent = txt;
+            const x = Math.random() * 280 + 10;
+            const y = Math.random() * 280 + 10;
+            el.style.left = x + '%';
+            el.style.top = y + '%';
+            if(click) el.onclick = () => handleInteraction(x, y, el);
+            E.world.appendChild(el);
+        }
+
+        // حركة اللاعب باللمس والسحب
+        const handleMove = (e) => {
+            if (state.isDigging) return;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            state.x = (clientX / window.innerWidth) * 100 + (Math.abs(camX)/window.innerWidth)*100; // مبسطة
+            state.y = (clientY / window.innerHeight) * 100 + (Math.abs(camY)/window.innerHeight)*100;
+            state.isDragging = true;
+            E.player.classList.add('walk');
+        };
+
+        document.addEventListener('touchstart', () => state.isDragging = true);
+        document.addEventListener('touchend', () => { state.isDragging = false; E.player.classList.remove('walk'); });
+        document.addEventListener('touchmove', (e) => {
+            const touch = e.touches[0];
+            state.x = (touch.pageX / window.innerWidth) * 100 * 3; // ليتناسب مع حجم العالم 300vw
+            state.y = (touch.pageY / window.innerHeight) * 100 * 3;
+            updatePlayerPos();
+        });
+
+        function updatePlayerPos() {
+            E.player.style.left = state.x + '%';
+            E.player.style.top = state.y + '%';
+        }
+
+        function handleInteraction(ex, ey, el) {
+            const d = Math.sqrt((state.x - ex)**2 + (state.y - ey)**2);
+            if (d < 15) {
+                startDigging(el);
+            } else {
+                showMsg("اقترب أكثر من الصندوق!");
+            }
+        }
+
+        function startDigging(el) {
+            state.isDigging = true;
+            E.prog.style.display = 'block';
+            let p = 0;
+            const inv = setInterval(() => {
+                p += 5;
+                E.bar.style.width = p + '%';
+                if(p >= 100) {
+                    clearInterval(inv);
+                    state.isDigging = false;
+                    E.prog.style.display = 'none';
+                    state.zaar += 10;
+                    E.zaar.textContent = state.zaar;
+                    el.remove();
+                    showMsg("وجدت 10 زار! ⚛️");
+                }
+            }, 100);
+        }
+
+        function showMsg(txt) {
+            E.msg.textContent = txt;
+            E.msg.style.display = 'block';
+            setTimeout(() => E.msg.style.display = 'none', 2000);
+        }
+
+        let camX = 0, camY = 0;
+        function gameLoop() {
+            // تنعيم حركة الكاميرا لتتبع اللاعب
+            const targetX = -(state.x * window.innerWidth / 100 - window.innerWidth / 2);
+            const targetY = -(state.y * window.innerHeight / 100 - window.innerHeight / 2);
+            camX += (targetX - camX) * 0.1;
+            camY += (targetY - camY) * 0.1;
+            E.world.style.transform = `translate(${camX}px, ${camY}px)`;
+            requestAnimationFrame(gameLoop);
+        }
+    </script>
+</body>
+</html>
